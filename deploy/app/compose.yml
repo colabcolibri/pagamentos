@@ -1,0 +1,33 @@
+# App do Quitou. Projeto separado do Postgres para o compose não recriar o banco.
+# A rede quitou-db já existe. O Caddy do VPS alcança o serviço quitou-web.
+
+name: quitou-web
+
+services:
+  web:
+    build:
+      context: ../..
+      dockerfile: deploy/app/Dockerfile
+      args:
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:?defina NEXT_PUBLIC_APP_URL}
+        NEXT_PUBLIC_AUTH_COOKIE_NAME: ${NEXT_PUBLIC_AUTH_COOKIE_NAME:-quitou_token}
+    image: quitou-web:prod
+    container_name: quitou-web
+    restart: unless-stopped
+    env_file:
+      - /opt/quitou/app.env
+    environment:
+      PORT: "3004"
+      HOSTNAME: "0.0.0.0"
+      NODE_ENV: production
+      TRUSTED_PROXY: "1"
+    networks:
+      - quitou-db
+    command: ["node", "node_modules/next/dist/bin/next", "start", "-H", "0.0.0.0", "-p", "3004"]
+    expose:
+      - "3004"
+
+networks:
+  quitou-db:
+    external: true
+    name: quitou-db

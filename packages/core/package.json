@@ -1,0 +1,85 @@
+{
+  "name": "@quitou/core",
+  "version": "1.0.0",
+  "description": "Regras de cobrança do Quitou: preço, cupom, Asaas, Pagar.me e webhook. O app Next é o único consumidor.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./email": {
+      "types": "./dist/email.d.ts",
+      "default": "./dist/email.js"
+    },
+    "./email-document": {
+      "types": "./dist/services/email/document.d.ts",
+      "default": "./dist/services/email/document.js"
+    },
+    "./product-webhook": {
+      "types": "./dist/webhooks/payment-confirmed-product-webhook.d.ts",
+      "default": "./dist/webhooks/payment-confirmed-product-webhook.js"
+    },
+    "./pricing": {
+      "types": "./dist/pricing.d.ts",
+      "default": "./dist/pricing.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist/**/*",
+    "templates/**/*",
+    "README.md",
+    "ARCHITECTURE.md",
+    "PUBLISH.md",
+    "EXEMPLO_REAL.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "clean": "rm -rf dist",
+    "types:generate": "node scripts/generate-types.mjs",
+    "prepublishOnly": "pnpm clean && pnpm build"
+  },
+  "keywords": [
+    "pagamento",
+    "payment",
+    "pagarme",
+    "asaas",
+    "javascript",
+    "typescript"
+  ],
+  "author": "Quitou Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/seu-usuario/quitou.git",
+    "directory": "packages/core"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "dependencies": {
+    "nodemailer": "^6.9.0",
+    "uuid": "^10.0.0",
+    "zod": "^3.22.0"
+  },
+  "peerDependencies": {
+    "next": ">=14.0.0"
+  },
+  "peerDependenciesMeta": {
+    "next": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.20",
+    "@types/nodemailer": "^6.4.0",
+    "@types/uuid": "^10.0.0",
+    "next": "^16.1.0",
+    "typescript": "^5.0.0",
+    "vitest": "^2.1.9"
+  }
+}

@@ -1,0 +1,14 @@
+.git
+.agent
+.cursor
+.meridian
+**/.env
+**/.env.local
+**/.env.*
+**/node_modules
+**/.next
+**/.turbo
+**/dist
+**/.vercel
+**/.DS_Store
+agent-transcripts

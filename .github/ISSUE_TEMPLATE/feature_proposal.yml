@@ -1,0 +1,23 @@
+name: Sugestão ou Melhoria
+description: Propor uma melhoria ou funcionalidade antes de abrir qualquer código/PR.
+title: "[PROPOSTA]: "
+labels: ["proposta"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Atenção:** Não aceitamos Pull Requests sem uma proposta previamente discutida e aprovada nesta issue.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Qual problema essa proposta resolve?
+      description: Explique o cenário atual e por que essa mudança é necessária.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solução Proposta
+      description: Como você imagina a implementação?
+    validations:
+      required: true

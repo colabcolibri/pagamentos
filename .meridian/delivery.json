@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "connector": "sqlite",
+  "package_root": ".",
+  "options": {}
+}

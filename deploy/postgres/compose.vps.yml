@@ -1,0 +1,10 @@
+# No VPS o Postgres não publica porta no host.
+# O Next entra na rede quitou-db e usa o serviço postgres:5432.
+# Uso:
+#   docker compose --env-file deploy/postgres/.env \
+#     -f deploy/postgres/compose.yml \
+#     -f deploy/postgres/compose.vps.yml up -d
+
+services:
+  postgres:
+    ports: !reset []

@@ -1,0 +1,33 @@
+{
+  "title": "Política de compra",
+  "subtitle": "Para sua assinatura digital",
+  "sections": [
+    {
+      "title": "Cancelamento e reembolso",
+      "content": [
+        "Após adquirir a assinatura, você tem <strong>7 dias corridos</strong> após a compra para solicitar o reembolso total. Isso está garantido pelo <strong>art. 49 do Código de Defesa do Consumidor</strong>.",
+        "Não precisa justificar. Basta pedir."
+      ]
+    },
+    {
+      "title": "Como solicitar",
+      "content": [
+        "Envie um e-mail para <strong>{{support_email}}</strong> informando que deseja cancelar sua assinatura e solicitar reembolso.",
+        "O processamento será feito em até 7 dias úteis."
+      ]
+    },
+    {
+      "title": "Sobre o acesso à plataforma",
+      "content": [
+        "O acesso é liberado imediatamente após a confirmação do pagamento.",
+        "Caso o reembolso seja solicitado e processado, o acesso correspondente será revogado."
+      ]
+    }
+  ],
+  "footer": "Essa política segue o Código de Defesa do Consumidor brasileiro.",
+  "checkout": {
+    "buttonText": "Ver política de compra",
+    "acceptanceText": "Li e aceito a política de compra",
+    "acceptanceRequired": "Você precisa aceitar a política de compra para continuar"
+  }
+}

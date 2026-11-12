@@ -1,0 +1,33 @@
+{
+  "title": "Política de compra",
+  "subtitle": "Entenda nossos termos para produtos digitais",
+  "sections": [
+    {
+      "title": "Cancelamento e reembolso",
+      "content": [
+        "Você tem <strong>7 dias corridos</strong> após a compra para solicitar o reembolso integral, desde que não tenha feito o download do produto.",
+        "Se o download já foi realizado, o reembolso não será mais possível, pois não há como \"devolver\" o produto."
+      ]
+    },
+    {
+      "title": "Acesso e download",
+      "content": [
+        "O link para download é disponibilizado imediatamente após a confirmação do pagamento.",
+        "Recomendamos que você faça o download e armazene o produto em um local seguro."
+      ]
+    },
+    {
+      "title": "Como solicitar o cancelamento",
+      "content": [
+        "Envie um e-mail para <strong>{{support_email}}</strong> com o assunto \"Solicitação de Cancelamento - Produto Digital\".",
+        "O processamento será feito em até 7 dias úteis."
+      ]
+    }
+  ],
+  "footer": "Esta política considera a natureza dos produtos digitais e busca equilibrar os direitos do consumidor com a viabilidade do nosso negócio.",
+  "checkout": {
+    "buttonText": "Ver política de compra",
+    "acceptanceText": "Li e aceito a política de compra",
+    "acceptanceRequired": "Você precisa aceitar a política de compra para continuar"
+  }
+}

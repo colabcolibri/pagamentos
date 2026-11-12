@@ -1,0 +1,35 @@
+name: Reportar um Bug
+description: Encontrou um problema ou erro no sistema? Relate aqui.
+title: "[BUG]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por ajudar a melhorar o Quitou! Por favor, forneça as informações abaixo com clareza.
+  - type: textarea
+    id: description
+    attributes:
+      label: Descrição do Bug
+      description: Uma descrição clara e concisa do que aconteceu.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Passos para Reproduzir
+      description: Como reproduzir o problema?
+      placeholder: |
+        1. Subir o container com `docker compose up`
+        2. Acessar `/checkout/...`
+        3. Clicar em ...
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Ambiente
+      description: SO, versão do Docker/Node, gateway utilizado (Pagar.me / Asaas).
+      placeholder: "Ubuntu 22.04 / Docker 24 / Asaas Sandbox"
+    validations:
+      required: false

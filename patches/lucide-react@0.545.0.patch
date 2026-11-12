@@ -1,0 +1,33 @@
+diff --git a/dist/cjs/lucide-react.d.ts b/dist/cjs/lucide-react.d.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..89d0ba6c0e52db26389c99849afa60108161b342
+--- /dev/null
++++ b/dist/cjs/lucide-react.d.ts
+@@ -0,0 +1 @@
++export * from '../lucide-react';
+diff --git a/dist/esm/lucide-react.d.ts b/dist/esm/lucide-react.d.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..89d0ba6c0e52db26389c99849afa60108161b342
+--- /dev/null
++++ b/dist/esm/lucide-react.d.ts
+@@ -0,0 +1 @@
++export * from '../lucide-react';
+diff --git a/package.json b/package.json
+index fdb5f24036dc5ce52ce43db7c25d7e08cc0b79ba..b735b5d401ba0f33d1e6329974bd7bcafd139d35 100644
+--- a/package.json
++++ b/package.json
+@@ -70,5 +70,14 @@
+     "test": "pnpm build:icons && vitest run",
+     "test:watch": "vitest watch",
+     "version": "pnpm version --git-tag-version=false"
++  },
++  "types": "./dist/lucide-react.d.ts",
++  "exports": {
++    ".": {
++      "types": "./dist/lucide-react.d.ts",
++      "import": "./dist/esm/lucide-react.js",
++      "require": "./dist/cjs/lucide-react.js",
++      "default": "./dist/esm/lucide-react.js"
++    }
+   }
+ }

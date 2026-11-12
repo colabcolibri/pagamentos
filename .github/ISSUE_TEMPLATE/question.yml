@@ -1,0 +1,23 @@
+name: Dúvida ou Pergunta
+description: Precisa de ajuda com configuração, variáveis de ambiente ou uso geral?
+title: "[DÚVIDA]: "
+labels: ["duvida"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Tire sua dúvida ou compartilhe uma pergunta sobre o Quitou.
+  - type: textarea
+    id: question
+    attributes:
+      label: Qual é a sua dúvida?
+      description: Descreva o que você está tentando configurar ou entender.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Contexto adicional
+      description: Informações que possam ajudar a responder (nunca poste senhas ou chaves secretas).
+    validations:
+      required: false

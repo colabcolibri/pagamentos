@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+set -e
+echo "🔍 Rodando verificações pre-commit..."
+pnpm exec lint-staged
+if git diff --cached --name-only | grep -q '^front-pagamento/.*\.\(ts\|tsx\)$'; then
+  echo "🔍 Verificando tipos (front-pagamento)..."
+  pnpm --filter @quitou/admin exec tsc --noEmit
+fi
+echo "✅ Verificações concluídas."

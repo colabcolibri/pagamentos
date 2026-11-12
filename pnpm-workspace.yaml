@@ -1,0 +1,11 @@
+packages:
+  - 'packages/*'
+  - 'front-pagamento'
+
+allowBuilds:
+  esbuild: true
+  sharp: true
+  unrs-resolver: true
+
+patchedDependencies:
+  lucide-react@0.545.0: patches/lucide-react@0.545.0.patch

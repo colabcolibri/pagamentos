@@ -1,0 +1,45 @@
+{
+  "title": "Política de compra",
+  "subtitle": "Para seu curso online",
+  "sections": [
+    {
+      "title": "Cancelamento e reembolso",
+      "content": [
+        "Você pode solicitar o reembolso integral do seu investimento em <strong>até 7 dias corridos após a compra</strong>, conforme o Código de Defesa do Consumidor. Esta é a sua garantia incondicional.",
+        "Adicionalmente, oferecemos um prazo estendido para que você possa avaliar o curso com tranquilidade. Você pode solicitar o reembolso de 100% <strong>até um dia antes da data do segundo encontro ao vivo</strong>.",
+        "Sua garantia será sempre o maior dos dois prazos. Por exemplo, se você se inscrever um dia antes do segundo encontro, seu direito a 7 dias de reembolso a partir da data da compra está mantido.",
+        "<strong>A partir da data do 2º encontro ao vivo e expirado o prazo de 7 dias após a compra</strong> o reembolso não será mais possível.",
+        "O valor pago é fixo e cobre o acesso ao curso como um todo. Não vendemos acessos parciais."
+      ]
+    },
+    {
+      "title": "Acesso ao curso",
+      "content": [
+        "O acesso às aulas e materiais é liberado após a confirmação do pagamento, segundo condições do curso.",
+        "Você terá acesso ao conteúdo pelo tempo estipulado na página de vendas do curso."
+      ]
+    },
+    {
+      "title": "Como solicitar o cancelamento",
+      "content": [
+        "Envie um e-mail para <strong>{{support_email}}</strong> com o assunto \"Solicitação de Cancelamento e Reembolso\".",
+        "O processamento será feito em até 7 dias úteis."
+      ]
+    },
+    {
+      "title": "Sobre a compra com boleto parcelado",
+      "content": [
+        "Ao optar pelo boleto parcelado, você está realizando uma <strong>compra a prazo</strong> e se comprometendo com o pagamento do valor total do produto.",
+        "Esta modalidade <strong>não é uma assinatura mensal</strong>. O cancelamento da compra, e da cobrança dos boletos futuros, segue a nossa política de cancelamento e reembolso descrita acima.",
+        "Após o término do prazo de reembolso a compra é considerada definitiva e o valor integral do curso é devido. A falta de pagamento dos boletos restantes poderá resultar em ações jurídicas de cobrança."
+      ],
+      "highlighted": true
+    }
+  ],
+  "footer": "Esta política se aplica a todos os alunos, sem exceção. Transparência é um valor fundamental para nós.",
+  "checkout": {
+    "buttonText": "Ver política de compra",
+    "acceptanceText": "Li e aceito a política de compra",
+    "acceptanceRequired": "Você precisa aceitar a política de compra para continuar"
+  }
+}
