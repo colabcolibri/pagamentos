@@ -71,10 +71,12 @@ export async function sendAccessCodeEmail(email: string, code: string): Promise<
   const fromName = serverEnv.EMAIL_FROM_NAME
   const message = renderAccessCodeEmail(code, fromName)
   const transporter = createEmailTransporter()
+  const subject =
+    serverEnv.NODE_ENV === 'production' ? 'Seu código de acesso' : `Seu código de acesso — ${email}`
   await transporter.sendMail({
     from: formatEmailFrom(from, fromName),
     to: email,
-    subject: 'Seu código de acesso',
+    subject,
     text: message.text,
     html: message.html,
   })

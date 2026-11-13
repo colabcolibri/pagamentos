@@ -15,4 +15,17 @@ describe('MCP_TOOLS', () => {
     expect(names).not.toContain('pagamento_apagar')
     expect(names).not.toContain('assinatura_cancelar')
   })
+
+  it('expõe dry_run e confirmar no inputSchema de todas as ferramentas de escrita', () => {
+    for (const tool of MCP_TOOLS) {
+      const props = (tool.parameters.properties ?? {}) as Record<string, unknown>
+      if (tool.action === 'read') {
+        expect(props).not.toHaveProperty('dry_run')
+        expect(props).not.toHaveProperty('confirmar')
+      } else {
+        expect(props).toHaveProperty('dry_run')
+        expect(props).toHaveProperty('confirmar')
+      }
+    }
+  })
 })

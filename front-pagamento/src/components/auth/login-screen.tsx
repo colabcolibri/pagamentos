@@ -14,7 +14,13 @@ const CONTENT = {
   },
 } as const
 
-export function LoginScreen({ nextPath }: { nextPath: string | null }) {
+export function LoginScreen({
+  nextPath,
+  devMailbox = null,
+}: {
+  nextPath: string | null
+  devMailbox?: { email: string; base: string } | null
+}) {
   const router = useRouter()
   const brand = useBrand()
 
@@ -44,6 +50,8 @@ export function LoginScreen({ nextPath }: { nextPath: string | null }) {
             allowCreateUser={false}
             initialMode="login"
             showHeader={false}
+            initialEmail={devMailbox?.email}
+            devMailboxBase={devMailbox?.base}
           />
           <div className="text-center text-sm text-muted-foreground">
             <p>{CONTENT.security.title}</p>

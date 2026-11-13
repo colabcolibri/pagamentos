@@ -4,6 +4,30 @@
 
 > Checkout e painel de pagamentos brasileiro, auto-hospedado (*self-hosted*), com suporte a **Pagar.me** e **Asaas** (inclusive boleto parcelado). Desenvolvido em Next.js e PostgreSQL, configurável por variáveis de ambiente e pronto para rodar com Docker Compose.
 
+## Telas
+
+Catálogo, pedidos e pagamentos de exemplo, só no banco local. Uma instalação nova abre vazia.
+
+**Checkout** — produto, preço e escolha entre à vista e parcelado.
+
+![Checkout da oficina de fotografia de produto](./docs/assets/tela-checkout.png)
+
+**Painel** — produtos, pedidos e receita do mês.
+
+![Painel administrativo](./docs/assets/tela-painel.png)
+
+**Pedidos** — Pix, boleto e cartão, com status e gateway.
+
+![Lista de pedidos](./docs/assets/tela-pedidos.png)
+
+**Produtos** — catálogo e preços.
+
+![Lista de produtos](./docs/assets/tela-produtos.png)
+
+**Acesso** — código de 6 dígitos por e-mail, sem senha.
+
+![Tela de acesso](./docs/assets/tela-login.png)
+
 ---
 
 ## Para que serve?

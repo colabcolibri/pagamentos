@@ -5,7 +5,7 @@ import { uuidSchema } from '@/lib/validators/common'
 /**
  * Validators para Product
  */
-const pricePromoTierSchema = z.object({
+export const pricePromoTierSchema = z.object({
   id: uuidSchema.optional(),
   sort_order: z.number().int().min(0),
   discount_percent: z.number().int().min(0).max(100),
@@ -18,7 +18,7 @@ const pricePromoTierSchema = z.object({
   applies_to: z.enum(['avista', 'parcelado', 'both']).optional().default('both'),
 })
 
-const priceCreateSchema = z.object({
+export const priceCreateSchema = z.object({
   ref: z.string().min(1, 'Ref do preço é obrigatório').max(100, 'Ref muito longo'),
   amount: z.number().int().min(0, 'Amount deve ser >= 0'),
   currency: z.string().max(10).optional(),
@@ -36,7 +36,7 @@ const priceCreateSchema = z.object({
   promo_tiers: z.array(pricePromoTierSchema).optional(),
 })
 
-const priceUpdateSchema = z.object({
+export const priceUpdateSchema = z.object({
   id: uuidSchema,
   ref: z.string().min(1).max(100).optional(),
   amount: z.number().int().min(0).optional(),

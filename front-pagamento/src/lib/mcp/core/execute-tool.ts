@@ -96,6 +96,7 @@ export async function executeTool(
       principal,
       dryRun,
       confirmed,
+      hasGrant: (policyKey, action) => Boolean(policy.grants[policyKey]?.includes(action)),
     })
     await deps.audit({
       principal,

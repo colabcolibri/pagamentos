@@ -2,6 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
 import { LoginScreen } from '@/components/auth/login-screen'
+import { devMailboxForAdmin } from '@/lib/auth/dev-mailbox'
 import { findActiveSession } from '@/lib/auth/session'
 import { publicEnv } from '@/lib/config/env'
 import { safeMcpReturnPath } from '@/lib/mcp/auth/safe-return-path'
@@ -20,5 +21,5 @@ export default async function LoginPage({
   if (session?.isAdmin) redirect(nextPath ?? '/admin')
   if (session) redirect('/profile')
 
-  return <LoginScreen nextPath={nextPath} />
+  return <LoginScreen nextPath={nextPath} devMailbox={devMailboxForAdmin()} />
 }

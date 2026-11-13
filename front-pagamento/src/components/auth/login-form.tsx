@@ -112,6 +112,8 @@ interface LoginFormProps {
   allowRegister?: boolean // Controla se permite registro
   allowCreateUser?: boolean // Controla se permite criar usuário (false = apenas login para usuários existentes)
   initialMode?: AuthMode
+  initialEmail?: string
+  devMailboxBase?: string
 }
 
 // ==========================================
@@ -140,6 +142,30 @@ const MessageDisplay = ({ message }: MessageDisplayProps) => {
   )
 }
 
+function devMailboxHref(base: string, email: string): string | null {
+  const target = email.trim().toLowerCase()
+  if (!target.includes('@')) return null
+  return `${base.replace(/\/$/, '')}/?q=${encodeURIComponent(`to:${target}`)}`
+}
+
+function DevMailboxLink({ base, email }: { base?: string; email: string }) {
+  if (!base) return null
+  const href = devMailboxHref(base, email)
+  if (!href) return null
+  const address = email.trim()
+
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="inline-block max-w-full text-sm font-medium text-primary underline wrap-break-word"
+    >
+      Abrir a caixa de {address}
+    </a>
+  )
+}
+
 interface EmailFormProps {
   name: string
   setName: (name: string) => void
@@ -148,9 +174,19 @@ interface EmailFormProps {
   onSubmit: (e: React.FormEvent) => void
   loading: boolean
   mode: AuthMode
+  devMailboxBase?: string
 }
 
-const EmailForm = ({ name, setName, email, setEmail, onSubmit, loading, mode }: EmailFormProps) => (
+const EmailForm = ({
+  name,
+  setName,
+  email,
+  setEmail,
+  onSubmit,
+  loading,
+  mode,
+  devMailboxBase,
+}: EmailFormProps) => (
   <form onSubmit={onSubmit} className="space-y-4">
     {mode === 'register' && (
       <div className="space-y-2">
@@ -178,6 +214,7 @@ const EmailForm = ({ name, setName, email, setEmail, onSubmit, loading, mode }: 
         required
         disabled={loading}
       />
+      <DevMailboxLink base={devMailboxBase} email={email} />
     </div>
 
     <Button
@@ -198,6 +235,7 @@ interface EmailSentViewProps {
   onResendEmail: () => void
   loading: boolean
   guarded: boolean
+  devMailboxBase?: string
 }
 
 const EmailSentView = ({
@@ -208,6 +246,7 @@ const EmailSentView = ({
   onResendEmail,
   loading,
   guarded,
+  devMailboxBase,
 }: EmailSentViewProps) => (
   <div className="space-y-4">
     <div className="text-center space-y-2">
@@ -229,6 +268,9 @@ const EmailSentView = ({
           {CONTENT.ui.emailSent.message} <strong className="break-all">{email}</strong>
         </p>
       )}
+      <p className="text-center">
+        <DevMailboxLink base={devMailboxBase} email={email} />
+      </p>
     </div>
 
     <form onSubmit={onVerifyOtp} className="space-y-4">
@@ -296,7 +338,7 @@ const useLoginForm = (props: LoginFormProps) => {
   const [state, setState] = useState<LoginFormState>({
     mode: props.initialMode || 'login',
     step: 'email',
-    email: '',
+    email: props.initialEmail ?? '',
     name: '',
     otp: '',
     loading: false,
@@ -444,6 +486,7 @@ export function LoginForm(props: LoginFormProps = {}) {
           onSubmit={handleSendEmail}
           loading={state.loading}
           mode={state.mode}
+          devMailboxBase={props.devMailboxBase}
         />
       )}
 
@@ -456,6 +499,7 @@ export function LoginForm(props: LoginFormProps = {}) {
           onResendEmail={handleResendEmail}
           loading={state.loading}
           guarded={props.allowCreateUser === false}
+          devMailboxBase={props.devMailboxBase}
         />
       )}
 

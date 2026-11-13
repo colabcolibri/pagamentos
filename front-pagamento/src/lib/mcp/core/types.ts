@@ -14,6 +14,7 @@ export type McpToolContext = {
   principal: McpPrincipal
   dryRun: boolean
   confirmed: boolean
+  hasGrant: (policyKey: string, action: McpAction) => boolean
 }
 
 export type McpTool<I extends z.ZodType = z.ZodType> = {

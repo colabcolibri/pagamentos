@@ -77,4 +77,27 @@ describe('ferramentas de IA', () => {
     expect(result.content[0]?.text).not.toContain('SECRET_gemini')
     expect(createProductWithPrices).not.toHaveBeenCalled()
   })
+
+  it('recusa gravar produto no banco se produto:upsert estiver desligado na política', async () => {
+    loadGatewayConfig.mockResolvedValue({ geminiApiKey: 'SECRET_gemini' })
+    geminiChat.mockResolvedValue({
+      text: JSON.stringify({
+        product: { name: 'Curso', ref: 'curso', description: null, active: false },
+        prices: [{ ref: 'avista', amount: 1000, currency: 'BRL', recurring: false, active: true }],
+      }),
+    })
+    const tool = MCP_TOOLS.find((item) => item.name === 'produto_gerar')!
+    const result = await executeTool(
+      tool,
+      {
+        texto: 'um texto longo o bastante para gerar um rascunho de produto digital',
+        confirmar: true,
+      },
+      principal,
+      deps
+    )
+    expect(result.isError).toBe(true)
+    expect(result.content[0]?.text).toContain('produto')
+    expect(createProductWithPrices).not.toHaveBeenCalled()
+  })
 })
