@@ -2,7 +2,8 @@
 
 import * as React from 'react'
 
-import { Slot } from '@radix-ui/react-slot'
+import { mergeProps } from '@base-ui/react/merge-props'
+import { useRender } from '@base-ui/react/use-render'
 import { VariantProps, cva } from 'class-variance-authority'
 import { PanelLeftIcon } from 'lucide-react'
 
@@ -374,6 +375,18 @@ function SidebarGroup({ className, ...props }: React.ComponentProps<'div'>) {
       {...props}
     />
   )
+}
+
+function Slot({
+  children,
+  ...props
+}: React.HTMLAttributes<HTMLElement> & Record<string, unknown> & { children?: React.ReactNode }) {
+  const renderEl = React.isValidElement(children) ? children : undefined
+  return useRender({
+    defaultTagName: 'div',
+    render: renderEl,
+    props: mergeProps(props as React.HTMLAttributes<HTMLElement>, {}),
+  })
 }
 
 function SidebarGroupLabel({

@@ -1,6 +1,9 @@
+'use client'
+
 import * as React from 'react'
 
-import { Slot } from '@radix-ui/react-slot'
+import { mergeProps } from '@base-ui/react/merge-props'
+import { useRender } from '@base-ui/react/use-render'
 import { type VariantProps, cva } from 'class-variance-authority'
 
 import { cn } from '@/lib/utils'
@@ -24,15 +27,27 @@ const badgeVariants = cva(
   }
 )
 
-function Badge({
-  className,
-  variant,
-  asChild = false,
-  ...props
-}: React.ComponentProps<'span'> & VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
-  const Comp = asChild ? Slot : 'span'
+export interface BadgeProps
+  extends useRender.ComponentProps<'span'>, VariantProps<typeof badgeVariants> {
+  asChild?: boolean
+}
 
-  return <Comp data-slot="badge" className={cn(badgeVariants({ variant }), className)} {...props} />
+function Badge({ className, variant, asChild = false, render, children, ...props }: BadgeProps) {
+  const resolvedRender =
+    render ?? (asChild && React.isValidElement(children) ? children : undefined)
+
+  return useRender({
+    defaultTagName: 'span',
+    render: resolvedRender,
+    props: mergeProps<'span'>(
+      {
+        className: cn(badgeVariants({ variant }), className),
+        children: resolvedRender && asChild ? undefined : children,
+      },
+      props
+    ),
+    state: { slot: 'badge' },
+  })
 }
 
 export { Badge, badgeVariants }

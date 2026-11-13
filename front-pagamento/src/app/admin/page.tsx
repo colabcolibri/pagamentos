@@ -55,32 +55,32 @@ const ICON_COLOR_MAP = {
   primary: {
     text: 'text-primary',
     bg: 'bg-primary/10',
-    border: 'border-primary',
+    hoverBorder: 'hover:border-l-primary',
   },
   success: {
     text: 'text-success',
     bg: 'bg-success/10',
-    border: 'border-success',
+    hoverBorder: 'hover:border-l-success',
   },
   tertiary: {
     text: 'text-tertiary',
     bg: 'bg-tertiary/10',
-    border: 'border-tertiary',
+    hoverBorder: 'hover:border-l-tertiary',
   },
   warning: {
     text: 'text-warning',
     bg: 'bg-warning/10',
-    border: 'border-warning',
+    hoverBorder: 'hover:border-l-warning',
   },
   destructive: {
     text: 'text-destructive',
     bg: 'bg-destructive/10',
-    border: 'border-destructive',
+    hoverBorder: 'hover:border-l-destructive',
   },
   muted: {
     text: 'text-muted-foreground',
     bg: 'bg-muted/50',
-    border: 'border-muted',
+    hoverBorder: 'hover:border-l-muted-foreground',
   },
 } as const
 
@@ -105,7 +105,7 @@ const StatCard = ({
       <Card
         className={`transition-all ${
           href
-            ? `hover:shadow-lg hover:-translate-y-0.5 cursor-pointer border-l-4 border-l-transparent hover:${colorConfig.border}`
+            ? `hover:shadow-md hover:-translate-y-0.5 cursor-pointer border-l-4 border-l-transparent ${colorConfig.hoverBorder}`
             : ''
         }`}
       >
@@ -119,8 +119,8 @@ const StatCard = ({
           <div
             className={
               variant === 'large'
-                ? 'scroll-m-20 text-4xl font-extrabold tracking-tight mb-1'
-                : 'scroll-m-20 text-3xl font-bold tracking-tight'
+                ? 'scroll-m-20 text-4xl font-extrabold tracking-tight tabular-nums mb-1'
+                : 'scroll-m-20 text-3xl font-bold tracking-tight tabular-nums'
             }
           >
             {value}

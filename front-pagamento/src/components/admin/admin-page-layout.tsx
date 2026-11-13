@@ -1,6 +1,27 @@
 'use client'
 
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+
+import { ChevronRight } from 'lucide-react'
+
+import { AdminCommandMenu } from '@/components/admin/admin-command-menu'
+import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger } from '@/components/ui/sidebar'
+
+const ROUTE_LABELS: Record<string, string> = {
+  '/admin': 'Dashboard',
+  '/admin/products': 'Produtos',
+  '/admin/payments': 'Pagamentos',
+  '/admin/orders': 'Pedidos',
+  '/admin/coupons': 'Cupons',
+  '/admin/subscriptions': 'Assinaturas',
+  '/admin/webhooks': 'Webhooks',
+  '/admin/audit': 'Trilha',
+  '/admin/emails': 'Emails enviados',
+  '/admin/admins': 'Administradores',
+  '/admin/settings': 'Configurações',
+}
 
 interface AdminPageLayoutProps {
   children: React.ReactNode
@@ -10,32 +31,50 @@ interface AdminPageLayoutProps {
 }
 
 export function AdminPageLayout({ children, title, subtitle, action }: AdminPageLayoutProps) {
+  const pathname = usePathname()
+  const currentLabel = ROUTE_LABELS[pathname] ?? title
+  const isRoot = pathname === '/admin'
+
   return (
-    <div className="flex flex-col min-h-screen w-full max-w-full overflow-x-hidden">
-      {/* Header simples - apenas botão do sidebar */}
-      <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 md:px-6">
-        <SidebarTrigger />
+    <div className="flex min-h-screen w-full min-w-0 flex-col bg-background">
+      {/* Topbar compacta com trigger, breadcrumb e busca rápida */}
+      <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/75 md:px-6">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="h-4" />
+          <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 text-sm">
+            <Link
+              href="/admin"
+              className="text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Admin
+            </Link>
+            {!isRoot && (
+              <>
+                <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />
+                <span className="truncate font-medium text-foreground">{currentLabel}</span>
+              </>
+            )}
+          </nav>
+        </div>
+
+        <AdminCommandMenu />
       </header>
 
-      {/* Hero Section - Título e Subtítulo */}
-      <div className="bg-muted/40 border-b border-border/40">
-        <div className="container mx-auto px-4 md:px-6 lg:px-8 py-8 md:py-12">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <h1 className="scroll-m-20 text-3xl font-bold tracking-tight text-foreground">
-                {title}
-              </h1>
-              {subtitle && <p className="text-muted-foreground">{subtitle}</p>}
+      {/* Conteúdo principal */}
+      <main className="flex-1 min-w-0">
+        <div className="mx-auto w-full max-w-7xl min-w-0 px-4 py-6 md:px-6 lg:px-8 space-y-6">
+          {/* Cabeçalho da página enxuto e alinhado */}
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0 space-y-1">
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground">{title}</h1>
+              {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
             </div>
-            {action && <div>{action}</div>}
+            {action && <div className="flex shrink-0 flex-wrap items-center gap-2">{action}</div>}
           </div>
-        </div>
-      </div>
 
-      {/* Conteúdo - sem overflow horizontal */}
-      <main className="flex-1 bg-muted/40 min-w-0 overflow-x-hidden">
-        <div className="container mx-auto px-4 md:px-6 lg:px-8 py-6 md:py-8 w-full max-w-full min-w-0 overflow-x-hidden">
-          {children}
+          {/* Área de trabalho */}
+          <div className="min-w-0">{children}</div>
         </div>
       </main>
     </div>

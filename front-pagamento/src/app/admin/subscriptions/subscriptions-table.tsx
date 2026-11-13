@@ -1,24 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 
+import { type ColumnDef } from '@tanstack/react-table'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, X, XCircle } from 'lucide-react'
+import { Activity, X } from 'lucide-react'
 
-import { AdminTableWrapper } from '@/components/admin/admin-table-wrapper'
+import { AppDataTable } from '@/components/admin/app-data-table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { FilterCombobox, type FilterOption } from '@/components/ui/filter-combobox'
-import { Skeleton } from '@/components/ui/skeleton'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import type { Subscription, SubscriptionStatus } from '@/hooks/admin/use-subscriptions'
 import { useSubscriptions } from '@/hooks/admin/use-subscriptions'
 
@@ -38,24 +30,9 @@ const CONTENT = {
     },
     clear: 'Limpar filtros',
   },
-  pagination: {
-    showing: 'Mostrando',
-    of: 'de',
-    results: 'resultados',
-    previous: 'Anterior',
-    next: 'Próxima',
-    page: 'Página',
-  },
-  table: {
-    id: 'ID',
-    customer: 'Cliente',
-    product: 'Produto',
-    amount: 'Valor',
-    status: 'Status',
-    period: 'Período',
-    cancelAtEnd: 'Cancela no fim',
-    created: 'Criado',
-    noData: 'Nenhuma assinatura encontrada',
+  empty: {
+    title: 'Nenhuma assinatura encontrada',
+    description: 'Não há assinaturas cadastradas para o filtro selecionado.',
   },
   status: {
     incomplete: 'Incompleta',
@@ -89,11 +66,10 @@ function getStatusBadgeVariant(
     case 'active':
       return 'default'
     case 'past_due':
+    case 'unpaid':
       return 'destructive'
     case 'canceled':
       return 'secondary'
-    case 'unpaid':
-      return 'destructive'
     case 'incomplete':
     default:
       return 'outline'
@@ -102,210 +78,174 @@ function getStatusBadgeVariant(
 
 export function SubscriptionsTable() {
   const [statusFilter, setStatusFilter] = useState<SubscriptionStatus | undefined>()
-  const [page, setPage] = useState(0)
+  const [page, setPage] = useState(1)
   const limit = 20
 
   const { data, isLoading, error } = useSubscriptions({
     status: statusFilter,
     includeRelations: true,
     limit,
-    offset: page * limit,
+    offset: (page - 1) * limit,
   })
 
   const subscriptions = data?.subscriptions || []
   const total = data?.total || 0
   const totalPages = Math.ceil(total / limit)
 
-  const hasFilters = !!statusFilter
-
-  const clearFilters = () => {
-    setStatusFilter(undefined)
-    setPage(0)
-  }
-
-  return (
-    <div className="space-y-4">
-      {/* Filtros */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <FilterCombobox
-          options={STATUS_OPTIONS}
-          value={statusFilter ?? null}
-          onValueChange={(value) => {
-            setStatusFilter((value as SubscriptionStatus) || undefined)
-            setPage(0)
-          }}
-          placeholder={CONTENT.filters.status.placeholder}
-          emptyText={CONTENT.filters.status.empty}
-        />
-
-        {hasFilters && (
-          <Button variant="outline" size="sm" onClick={clearFilters}>
-            <X className="h-4 w-4 mr-2" />
-            {CONTENT.filters.clear}
-          </Button>
-        )}
-      </div>
-
-      {/* Tabela */}
-      <AdminTableWrapper aria-label="Lista de assinaturas">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{CONTENT.table.id}</TableHead>
-              <TableHead>{CONTENT.table.customer}</TableHead>
-              <TableHead>{CONTENT.table.product}</TableHead>
-              <TableHead>{CONTENT.table.amount}</TableHead>
-              <TableHead>{CONTENT.table.status}</TableHead>
-              <TableHead>{CONTENT.table.period}</TableHead>
-              <TableHead>{CONTENT.table.cancelAtEnd}</TableHead>
-              <TableHead>{CONTENT.table.created}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell>
-                    <Skeleton className="h-4 w-32" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-40" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-32" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-24" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-20" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-32" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-16" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-24" />
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : error ? (
-              <TableRow>
-                <TableCell
-                  colSpan={8}
-                  className="p-8 md:p-12 text-center border-t border-destructive/20 bg-destructive/10"
-                >
-                  <XCircle className="h-10 w-10 text-destructive mx-auto mb-3" />
-                  <p className="text-sm font-medium text-destructive">
-                    Erro ao carregar assinaturas
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">Tente recarregar a página</p>
-                </TableCell>
-              </TableRow>
-            ) : subscriptions.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} className="p-8 md:p-12 text-center">
-                  <div className="text-3xl mb-3">📋</div>
-                  <p className="text-sm font-medium text-foreground">{CONTENT.table.noData}</p>
-                </TableCell>
-              </TableRow>
-            ) : (
-              subscriptions.map((subscription: Subscription) => {
-                const price = subscription.prices
-                const product = price?.products
-                const profile = subscription.profiles
-
-                return (
-                  <TableRow key={subscription.id}>
-                    <TableCell className="font-mono text-xs">
-                      {subscription.id.slice(0, 8)}...
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-medium">{profile?.name || '-'}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {profile?.email || '-'}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>{product?.name || '-'}</TableCell>
-                    <TableCell>
-                      {price ? formatCurrency(price.amount, price.currency) : '-'}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={getStatusBadgeVariant(subscription.status)}>
-                        {CONTENT.status[subscription.status] || subscription.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {subscription.current_period_start && subscription.current_period_end ? (
-                        <div className="flex flex-col text-xs">
-                          <span>{formatDate(subscription.current_period_start)}</span>
-                          <span className="text-muted-foreground">
-                            até {formatDate(subscription.current_period_end)}
-                          </span>
-                        </div>
-                      ) : (
-                        '-'
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {subscription.cancel_at_period_end ? (
-                        <Badge variant="outline">Sim</Badge>
-                      ) : (
-                        <span className="text-muted-foreground">Não</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {subscription.created_at
-                        ? formatDistanceToNow(new Date(subscription.created_at), {
-                            addSuffix: true,
-                            locale: ptBR,
-                          })
-                        : '-'}
-                    </TableCell>
-                  </TableRow>
-                )
+  const columns = useMemo<ColumnDef<Subscription>[]>(
+    () => [
+      {
+        accessorKey: 'id',
+        header: 'ID',
+        meta: { cellClassName: 'whitespace-nowrap' },
+        cell: ({ row }) => (
+          <code className="text-xs bg-muted px-2 py-1 rounded font-mono">
+            {row.original.id.slice(0, 8)}...
+          </code>
+        ),
+      },
+      {
+        id: 'customer',
+        header: 'Cliente',
+        cell: ({ row }) => {
+          const profile = row.original.profiles
+          return (
+            <div className="flex flex-col min-w-0 max-w-[220px]">
+              <span className="font-medium text-sm truncate">{profile?.name || '-'}</span>
+              <span className="text-xs text-muted-foreground truncate">
+                {profile?.email || '-'}
+              </span>
+            </div>
+          )
+        },
+      },
+      {
+        id: 'product',
+        header: 'Produto',
+        cell: ({ row }) => (
+          <span className="font-medium text-sm block max-w-[200px] truncate">
+            {row.original.prices?.products?.name || '-'}
+          </span>
+        ),
+      },
+      {
+        id: 'amount',
+        header: 'Valor',
+        meta: {
+          headerClassName: 'text-right',
+          cellClassName: 'text-right font-mono font-semibold tabular-nums whitespace-nowrap',
+        },
+        cell: ({ row }) => {
+          const price = row.original.prices
+          return price ? formatCurrency(price.amount, price.currency) : '-'
+        },
+      },
+      {
+        accessorKey: 'status',
+        header: 'Status',
+        meta: { cellClassName: 'whitespace-nowrap' },
+        cell: ({ row }) => (
+          <Badge variant={getStatusBadgeVariant(row.original.status)}>
+            {CONTENT.status[row.original.status] || row.original.status}
+          </Badge>
+        ),
+      },
+      {
+        id: 'period',
+        header: 'Período',
+        meta: { cellClassName: 'whitespace-nowrap tabular-nums' },
+        cell: ({ row }) =>
+          row.original.current_period_start && row.original.current_period_end ? (
+            <div className="flex flex-col text-xs">
+              <span>{formatDate(row.original.current_period_start)}</span>
+              <span className="text-muted-foreground">
+                até {formatDate(row.original.current_period_end)}
+              </span>
+            </div>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
+      },
+      {
+        accessorKey: 'cancel_at_period_end',
+        header: 'Cancela no fim',
+        meta: { cellClassName: 'whitespace-nowrap' },
+        cell: ({ row }) =>
+          row.original.cancel_at_period_end ? (
+            <Badge variant="outline">Sim</Badge>
+          ) : (
+            <span className="text-sm text-muted-foreground">Não</span>
+          ),
+      },
+      {
+        accessorKey: 'created_at',
+        header: 'Criado',
+        meta: {
+          headerClassName: 'text-right',
+          cellClassName: 'text-right text-sm text-muted-foreground tabular-nums whitespace-nowrap',
+        },
+        cell: ({ row }) =>
+          row.original.created_at
+            ? formatDistanceToNow(new Date(row.original.created_at), {
+                addSuffix: true,
+                locale: ptBR,
               })
-            )}
-          </TableBody>
-        </Table>
-      </AdminTableWrapper>
+            : '—',
+      },
+    ],
+    []
+  )
 
-      {/* Paginação */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
-            {CONTENT.pagination.showing} {page * limit + 1} - {Math.min((page + 1) * limit, total)}{' '}
-            {CONTENT.pagination.of} {total} {CONTENT.pagination.results}
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-              disabled={page === 0}
-            >
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              {CONTENT.pagination.previous}
-            </Button>
-            <span className="text-sm text-muted-foreground">
-              {CONTENT.pagination.page} {page + 1} {CONTENT.pagination.of} {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-              disabled={page >= totalPages - 1}
-            >
-              {CONTENT.pagination.next}
-              <ChevronRight className="h-4 w-4 ml-1" />
-            </Button>
-          </div>
-        </div>
+  const toolbar = (
+    <div className="flex flex-wrap items-center gap-2">
+      <FilterCombobox
+        placeholder={CONTENT.filters.status.placeholder}
+        emptyText={CONTENT.filters.status.empty}
+        options={STATUS_OPTIONS}
+        value={statusFilter ?? null}
+        onValueChange={(value) => {
+          setStatusFilter((value as SubscriptionStatus | null) ?? undefined)
+          setPage(1)
+        }}
+      />
+      {statusFilter && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            setStatusFilter(undefined)
+            setPage(1)
+          }}
+        >
+          <X className="size-4" />
+          {CONTENT.filters.clear}
+        </Button>
       )}
     </div>
+  )
+
+  return (
+    <AppDataTable
+      ariaLabel="Lista de assinaturas"
+      columns={columns}
+      data={subscriptions}
+      isLoading={isLoading}
+      error={
+        error ? (error instanceof Error ? error.message : 'Erro ao carregar assinaturas') : null
+      }
+      errorTitle="Erro ao carregar assinaturas"
+      emptyIcon={<Activity className="size-10 text-muted-foreground/60" />}
+      emptyTitle={CONTENT.empty.title}
+      emptyDescription={CONTENT.empty.description}
+      toolbar={toolbar}
+      getRowId={(row) => row.id}
+      pagination={{
+        page,
+        pageSize: limit,
+        total,
+        totalPages,
+        onPageChange: setPage,
+      }}
+    />
   )
 }

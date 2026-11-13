@@ -92,14 +92,13 @@
   --radius: 0.625rem;
 
   /* ========================= BACKGROUNDS ========================= */
-  /* Nunca branco puro - 97-98% luminosidade com toque de azul */
-  --background: hsl(220 20% 98%);
+  --background: hsl(220 20% 97.5%);
   --foreground: hsl(222 47% 11%);
 
   /* ========================= CARDS & SURFACES ========================= */
-  --card: hsl(220 20% 97%);
+  --card: hsl(0 0% 100%);
   --card-foreground: hsl(222 47% 11%);
-  --popover: hsl(0 0% 98%);
+  --popover: hsl(0 0% 100%);
   --popover-foreground: hsl(222 47% 11%);
 
   /* ========================= PRIMARY - Indigo ========================= */
@@ -166,11 +165,11 @@
    ============================================================================ */
 .dark {
   /* ========================= BACKGROUNDS ========================= */
-  --background: hsl(222 47% 8%);
+  --background: hsl(222 47% 7%);
   --foreground: hsl(215 20% 95%);
 
   /* ========================= CARDS & SURFACES ========================= */
-  --card: hsl(222 47% 11%);
+  --card: hsl(222 47% 10%);
   --card-foreground: hsl(215 20% 95%);
   --popover: hsl(222 47% 11%);
   --popover-foreground: hsl(215 20% 95%);

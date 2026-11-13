@@ -10,10 +10,9 @@ interface AdminTableWrapperProps {
 }
 
 /**
- * Wrapper padronizado para tabelas no admin.
- * Garante que tabelas com muitas colunas tenham scroll interno (overflow-x-auto)
- * no container, nunca na página inteira.
- * Usa min-w-0 para funcionar corretamente em contextos flex.
+ * Container visual padronizado para tabelas no admin.
+ * O scroll horizontal fica exclusivamente no [data-slot="table-container"] do Table,
+ * evitando scroll duplo aninhado.
  */
 export function AdminTableWrapper({
   children,
@@ -24,13 +23,13 @@ export function AdminTableWrapper({
   return (
     <div
       className={cn(
-        'w-full max-w-full min-w-0 rounded-xl border border-border bg-card text-card-foreground shadow-sm overflow-hidden',
+        'w-full min-w-0 overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-xs',
         className
       )}
       role={role}
       aria-label={ariaLabel}
     >
-      <div className="min-w-0 overflow-x-auto">{children}</div>
+      {children}
     </div>
   )
 }

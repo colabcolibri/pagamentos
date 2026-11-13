@@ -152,12 +152,16 @@ export function Dialog({
   }
 
   return (
-    <DialogRoot open={open} onOpenChange={handleOpenChange}>
+    <DialogRoot
+      open={open}
+      onOpenChange={handleOpenChange}
+      disablePointerDismissal={disableOverlayClose}
+    >
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogPortal>
         <DialogOverlay
           className={cn(
-            'fixed inset-0 z-50 bg-black/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+            'fixed inset-0 z-50 bg-black/50 backdrop-blur-sm data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0',
             overlayClassName
           )}
         />
@@ -165,16 +169,11 @@ export function Dialog({
           onClick={(e) => e.stopPropagation()}
           showCloseButton={false}
           className={cn(
-            'fixed top-1/2 left-1/2 z-50 grid max-h-[min(90vh,90dvh)] min-h-0 w-[min(calc(100vw-2rem),calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden rounded-lg border bg-background p-0 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] overscroll-contain sm:w-[min(calc(100vw-4rem),calc(100%-4rem))]',
+            'fixed top-1/2 left-1/2 z-50 grid max-h-[min(90vh,90dvh)] min-h-0 w-[min(calc(100vw-2rem),calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden rounded-lg border bg-background p-0 shadow-lg duration-200 data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 data-[closed]:zoom-out-95 data-[open]:zoom-in-95 overscroll-contain sm:w-[min(calc(100vw-4rem),calc(100%-4rem))]',
             height && MAX_HEIGHT_SIZES[height],
             dialogVariants({ intent, size }),
             contentClassName
           )}
-          onInteractOutside={(event) => {
-            if (disableOverlayClose) {
-              event.preventDefault()
-            }
-          }}
         >
           <div className="w-full min-w-0 shrink-0 border-b border-border bg-background">
             <div className="flex w-full min-w-0 flex-col px-4 pt-4 pb-4 sm:px-6">

@@ -1,8 +1,8 @@
 ---
 title: Design System
-status: draft
-version: 1.0
-updated: 2026-11-09
+status: review
+version: 1.1
+updated: 2026-11-14
 depends_on: [01_tech_stack.md, 04_principles.md, 05_architecture.md]
 blocks: []
 ---
@@ -11,11 +11,11 @@ blocks: []
 
 ## Overview
 
-Rascunho de init. Completar com `/design-pass bootstrap`, `/design-flow` e `/design-theme` antes de tratar como contrato visual.
+Contrato visual atualizado para migração de Radix UI para **Base UI** (`@base-ui/react`) e refatoração completa do shell administrativo e tabelas.
 
 - **Surfaces:** web. Checkout, login, perfil, admin e página inicial.
-- **Primary UI stack:** `ts-shadcn`. Tailwind v4, Radix, `class-variance-authority`, `lucide-react`, `sonner`, `next-themes`.
-- **Mood:** ferramenta de pagamento e operação. Os guias visuais antigos estão em `docs/guides/guia-design/`.
+- **Primary UI stack:** `ts-shadcn` com **Base UI** (`@base-ui/react`), Tailwind v4, `@tanstack/react-table`, `class-variance-authority`, `lucide-react`, `cmdk`, `sonner`, `next-themes`.
+- **Mood:** ferramenta financeira e operacional de alta densidade e contraste limpo. Os guias visuais antigos estão em `docs/guides/guia-design/`.
 
 ## Colors
 
