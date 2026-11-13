@@ -1,38 +1,35 @@
 'use client'
 
-import { Fragment, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 
 import { useQueryClient } from '@tanstack/react-query'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
-  CheckCircle2,
+  Check,
   ChevronDown,
-  ChevronRight,
+  ChevronUp,
   Copy,
   Download,
+  Package,
   Pencil,
   Plus,
+  Search,
   Sparkles,
   Trash2,
   Upload,
+  X,
   XCircle,
 } from 'lucide-react'
 
 import { AdminPageLayout } from '@/components/admin/admin-page-layout'
-import { AdminTableWrapper } from '@/components/admin/admin-table-wrapper'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { FilterCombobox, type FilterOption } from '@/components/ui/filter-combobox'
+import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import {
   useCreateProduct,
   useDeletePrice,
@@ -53,9 +50,22 @@ import { EditProductDialog } from './edit-product-dialog'
 import { GenerateProductDialog } from './generate-product-dialog'
 import type { CatalogProductLite } from './price-editor'
 
+const STATUS_FILTER_OPTIONS: FilterOption[] = [
+  { value: 'all', label: 'Todos' },
+  { value: 'active', label: 'Ativos' },
+  { value: 'inactive', label: 'Inativos' },
+]
+
+const PAYMENT_METHOD_LABEL: Record<string, string> = {
+  pix: 'PIX',
+  boleto: 'Boleto',
+  boleto_parcelado: 'Boleto Parcelado',
+  credit_card: 'Cartão',
+}
+
 const CONTENT = {
   title: 'Produtos',
-  subtitle: 'Gerencie produtos e preços do sistema',
+  subtitle: 'Gerencie seu catálogo de produtos, ofertas e links de checkout',
   actions: {
     generateWithAi: 'Gerar com IA',
     newProduct: 'Novo produto',
@@ -63,44 +73,21 @@ const CONTENT = {
   },
   downloadJson: 'Baixar JSON',
   uploadJsonError: 'Erro ao importar JSON. Verifique o arquivo e tente novamente.',
-  uploadJsonSuccess: 'Produto importado com sucesso.',
-  table: {
-    name: 'Nome',
-    ref: 'Referência',
-    status: 'Status',
-    prices: 'Preços',
-    created: 'Criado',
-    header: {
-      ref: 'Referência',
-      type: 'Tipo',
-      recurrence: 'Recorr.',
-      currency: 'Moeda',
-      status: 'Status',
-      prices: 'Preços',
-      created: 'Criado',
-    },
-  },
-  pricesTable: {
-    name: 'Nome',
-    value: 'Valor',
-    cash: 'À vista',
-    installmentMax: 'Parcela (máx.)',
-    link: 'Link',
+  prices: {
+    title: 'Preços e ofertas',
     copyLink: 'Copiar link',
-    copied: 'Copiado!',
+    copied: 'Link copiado!',
+    empty: 'Nenhum preço cadastrado neste produto.',
+    addPrice: 'Configurar preços',
     priceLabel: 'Preço',
   },
   status: {
     active: 'Ativo',
     inactive: 'Inativo',
   },
-  price: {
-    oneTime: 'Único',
-    recurring: 'Recorrente',
-  },
   empty: {
     title: 'Nenhum produto encontrado',
-    description: 'Não há produtos cadastrados no sistema.',
+    description: 'Cadastre seu primeiro produto ou gere um catálogo com IA.',
   },
   error: {
     title: 'Erro ao carregar produtos',
@@ -123,9 +110,74 @@ const CONTENT = {
   cancel: 'Cancelar',
   copyCheckoutSuccess: 'Link de checkout copiado!',
   groups: {
-    ungrouped: 'Sem grupo',
+    ungrouped: 'Catálogo geral',
   },
 } as const
+
+function formatPrice(cents: number) {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(cents / 100)
+}
+
+function formatRecurrenceBadge(
+  recurring: boolean | null | undefined,
+  interval: string | null | undefined,
+  count: number | null | undefined
+) {
+  if (!recurring) return 'Pagamento único'
+  if (!interval) return 'Recorrente'
+  const n = count && count > 1 ? count : 1
+  if (n === 1) {
+    const single: Record<string, string> = {
+      day: 'Diário',
+      week: 'Semanal',
+      month: 'Mensal',
+      year: 'Anual',
+    }
+    return single[interval] ?? `A cada ${interval}`
+  }
+  const plural: Record<string, string> = {
+    day: 'dias',
+    week: 'semanas',
+    month: 'meses',
+    year: 'anos',
+  }
+  return `A cada ${n} ${plural[interval] ?? `${interval}s`}`
+}
+
+function formatRecurrenceSuffix(
+  recurring: boolean | null | undefined,
+  interval: string | null | undefined,
+  count: number | null | undefined
+) {
+  if (!recurring || !interval) return null
+  const n = count && count > 1 ? count : 1
+  if (n === 1) {
+    const short: Record<string, string> = {
+      day: '/dia',
+      week: '/sem',
+      month: '/mês',
+      year: '/ano',
+    }
+    return short[interval] ?? `/${interval}`
+  }
+  const plural: Record<string, string> = {
+    day: 'dias',
+    week: 'sem',
+    month: 'meses',
+    year: 'anos',
+  }
+  return `/${n} ${plural[interval] ?? interval}`
+}
+
+function getCashPrice(amount: number, meta: Record<string, unknown>) {
+  const pct = typeof meta?.cash_discount === 'number' ? meta.cash_discount : 0
+  if (pct <= 0) return null
+  const cashCents = Math.round(amount * (1 - pct / 100))
+  return { cashCents, pct }
+}
 
 export default function ProductsPage() {
   const queryClient = useQueryClient()
@@ -134,7 +186,10 @@ export default function ProductsPage() {
   const updateProduct = useUpdateProduct()
   const deleteProduct = useDeleteProduct()
   const deletePriceMutation = useDeletePrice()
-  const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set())
+
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
+  const [collapsedProducts, setCollapsedProducts] = useState<Set<string>>(new Set())
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [creatingNew, setCreatingNew] = useState(false)
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false)
@@ -149,10 +204,21 @@ export default function ProductsPage() {
 
   const isDialogOpen = creatingNew || !!editingProduct
 
+  const filteredProducts = useMemo(() => {
+    if (!products?.length) return []
+    const q = search.trim().toLowerCase()
+    return products.filter((p) => {
+      if (statusFilter === 'active' && !p.active) return false
+      if (statusFilter === 'inactive' && p.active) return false
+      if (!q) return true
+      return p.name.toLowerCase().includes(q) || p.ref.toLowerCase().includes(q)
+    })
+  }, [products, search, statusFilter])
+
   const groupedProducts = useMemo(() => {
-    if (!products?.length) return [] as { label: string; items: Product[] }[]
+    if (!filteredProducts.length) return [] as { label: string; items: Product[] }[]
     const map = new Map<string, Product[]>()
-    for (const p of products) {
+    for (const p of filteredProducts) {
       const label = getProductAdminGroupLabel(p.metadata)
       const key = label || '\0'
       if (!map.has(key)) map.set(key, [])
@@ -170,7 +236,7 @@ export default function ProductsPage() {
       return a.label.localeCompare(b.label, 'pt-BR', { sensitivity: 'base' })
     })
     return entries
-  }, [products])
+  }, [filteredProducts])
 
   const catalogProductsForEditor = useMemo((): CatalogProductLite[] => {
     if (!products?.length) return []
@@ -185,8 +251,8 @@ export default function ProductsPage() {
     }))
   }, [products])
 
-  const toggleExpand = (productId: string) => {
-    setExpandedProducts((prev) => {
+  const toggleCollapse = (productId: string) => {
+    setCollapsedProducts((prev) => {
       const next = new Set(prev)
       if (next.has(productId)) {
         next.delete(productId)
@@ -195,20 +261,6 @@ export default function ProductsPage() {
       }
       return next
     })
-  }
-
-  const formatPrice = (cents: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(cents / 100)
-  }
-
-  const getCashPrice = (amount: number, meta: Record<string, unknown>) => {
-    const pct = typeof meta?.cash_discount === 'number' ? meta.cash_discount : 0
-    if (pct <= 0) return null
-    const cashCents = Math.round(amount * (1 - pct / 100))
-    return { cashCents, pct }
   }
 
   const handleSave = async (updated: Partial<Product>) => {
@@ -269,24 +321,24 @@ export default function ProductsPage() {
       title={CONTENT.title}
       subtitle={CONTENT.subtitle}
       action={
-        <div className="flex flex-col gap-2 min-w-0">
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => setGenerateDialogOpen(true)} size="sm">
-              <Sparkles className="h-4 w-4 mr-2 shrink-0" />
-              {CONTENT.actions.generateWithAi}
-            </Button>
-            <Button onClick={() => setCreatingNew(true)} size="sm">
-              <Plus className="h-4 w-4 mr-2 shrink-0" />
-              {CONTENT.actions.newProduct}
-            </Button>
+        <div className="flex flex-col items-end gap-2 min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={() => fileInputRef.current?.click()}
               disabled={createProduct.isPending}
             >
-              <Upload className="h-4 w-4 mr-2 shrink-0" />
+              <Upload className="size-4" />
               {CONTENT.actions.uploadJson}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setGenerateDialogOpen(true)}>
+              <Sparkles className="size-4" />
+              {CONTENT.actions.generateWithAi}
+            </Button>
+            <Button size="sm" onClick={() => setCreatingNew(true)}>
+              <Plus className="size-4" />
+              {CONTENT.actions.newProduct}
             </Button>
             <input
               ref={fileInputRef}
@@ -298,389 +350,407 @@ export default function ProductsPage() {
             />
           </div>
           {uploadError && (
-            <p className="text-sm text-destructive truncate" role="alert">
+            <p className="text-xs text-destructive" role="alert">
               {uploadError}
             </p>
           )}
         </div>
       }
     >
-      <AdminTableWrapper aria-label="Lista de produtos">
+      <div className="space-y-6 min-w-0">
+        {/* Toolbar de busca e filtro */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+            <div className="relative w-full sm:max-w-xs">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar produto ou referência..."
+                className="pl-9 h-9 bg-card"
+              />
+            </div>
+            <FilterCombobox
+              placeholder="Status"
+              emptyText="—"
+              options={STATUS_FILTER_OPTIONS}
+              value={statusFilter}
+              onValueChange={(v) =>
+                setStatusFilter((v as 'all' | 'active' | 'inactive' | null) ?? 'all')
+              }
+            />
+            {(search.trim() !== '' || statusFilter !== 'all') && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSearch('')
+                  setStatusFilter('all')
+                }}
+              >
+                <X className="size-4" />
+                Limpar
+              </Button>
+            )}
+          </div>
+          {!isLoading && products && (
+            <span className="text-xs text-muted-foreground tabular-nums shrink-0">
+              {filteredProducts.length} {filteredProducts.length === 1 ? 'produto' : 'produtos'}
+            </span>
+          )}
+        </div>
+
+        {/* Conteúdo principal */}
         {isLoading ? (
-          <div className="p-6 space-y-4">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="flex items-center gap-4">
-                <Skeleton className="h-12 w-12 rounded" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-4 w-1/3" />
-                  <Skeleton className="h-3 w-1/4" />
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <Card key={i} className="p-6 space-y-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-2 flex-1">
+                    <Skeleton className="h-5 w-1/3" />
+                    <Skeleton className="h-4 w-1/4" />
+                  </div>
+                  <Skeleton className="h-8 w-32" />
                 </div>
-                <Skeleton className="h-6 w-16" />
-              </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 pt-2">
+                  <Skeleton className="h-28 rounded-lg" />
+                  <Skeleton className="h-28 rounded-lg" />
+                </div>
+              </Card>
             ))}
           </div>
         ) : error ? (
-          <div className="p-8 md:p-12 text-center border-t border-destructive/20 bg-destructive/10">
-            <XCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
-            <h3 className="scroll-m-20 text-lg font-semibold tracking-tight text-foreground mb-2">
-              {CONTENT.error.title}
-            </h3>
+          <Card className="p-8 md:p-12 text-center border-destructive/20 bg-destructive/5">
+            <XCircle className="size-10 text-destructive mx-auto mb-3" />
+            <h3 className="text-base font-semibold text-foreground mb-1">{CONTENT.error.title}</h3>
             <p className="text-sm text-muted-foreground">{CONTENT.error.description}</p>
-          </div>
-        ) : !products || products.length === 0 ? (
-          <div className="p-8 md:p-12 text-center">
-            <div className="text-4xl mb-4">📦</div>
-            <h3 className="scroll-m-20 text-lg font-semibold tracking-tight text-foreground mb-2">
-              {CONTENT.empty.title}
-            </h3>
-            <p className="text-sm text-muted-foreground mb-4">{CONTENT.empty.description}</p>
-            <Button onClick={() => setCreatingNew(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Novo produto
-            </Button>
-          </div>
+          </Card>
+        ) : filteredProducts.length === 0 ? (
+          <Card className="p-8 md:p-12 text-center">
+            <Package className="size-10 text-muted-foreground/60 mx-auto mb-3" />
+            <h3 className="text-base font-semibold text-foreground mb-1">{CONTENT.empty.title}</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              {products && products.length > 0
+                ? 'Nenhum produto corresponde aos filtros atuais.'
+                : CONTENT.empty.description}
+            </p>
+            {products && products.length > 0 ? (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSearch('')
+                  setStatusFilter('all')
+                }}
+              >
+                Limpar filtros
+              </Button>
+            ) : (
+              <Button onClick={() => setCreatingNew(true)}>
+                <Plus className="size-4" />
+                {CONTENT.actions.newProduct}
+              </Button>
+            )}
+          </Card>
         ) : (
-          <Table className="w-full table-fixed">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-10 shrink-0 pl-2 md:pl-4"></TableHead>
-                <TableHead className="w-[28%] min-w-0">{CONTENT.table.name}</TableHead>
-                <TableHead className="w-[18%] min-w-0">{CONTENT.table.ref}</TableHead>
-                <TableHead className="w-20 shrink-0">{CONTENT.table.status}</TableHead>
-                <TableHead className="w-16 shrink-0 text-right">{CONTENT.table.prices}</TableHead>
-                <TableHead className="w-36 shrink-0 text-right">{CONTENT.table.created}</TableHead>
-                <TableHead className="w-24 shrink-0 pr-2 md:pr-4"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {groupedProducts.map(({ label: groupLabel, items: groupItems }) => (
-                <Fragment key={groupLabel || '__ungrouped'}>
-                  {(groupedProducts.length > 1 || !!groupLabel) && (
-                    <TableRow className="bg-muted/50 hover:bg-muted/50 border-b-border/60">
-                      <TableCell
-                        colSpan={7}
-                        className="py-2.5 pl-4 md:pl-6 pr-4 text-xs sm:text-sm font-semibold text-muted-foreground min-w-0"
-                      >
-                        <span
-                          className="block truncate"
-                          title={groupLabel || CONTENT.groups.ungrouped}
-                        >
-                          {groupLabel || CONTENT.groups.ungrouped}
-                        </span>
-                      </TableCell>
-                    </TableRow>
-                  )}
+          <div className="space-y-8">
+            {groupedProducts.map(({ label: groupLabel, items: groupItems }) => (
+              <section key={groupLabel || '__ungrouped'} className="space-y-3">
+                {(groupedProducts.length > 1 || !!groupLabel) && (
+                  <div className="flex items-center justify-between px-1">
+                    <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      {groupLabel || CONTENT.groups.ungrouped}
+                    </h2>
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {groupItems.length}
+                    </span>
+                  </div>
+                )}
+
+                <div className="space-y-4">
                   {groupItems.map((product: Product) => {
-                    const isExpanded = expandedProducts.has(product.id)
-                    const hasPrices = product.prices && product.prices.length > 0
+                    const prices = product.prices ?? []
+                    const isCollapsed = collapsedProducts.has(product.id)
+                    const methods = Array.isArray(product.payment_methods)
+                      ? product.payment_methods
+                      : []
 
                     return (
-                      <Fragment key={product.id}>
-                        <TableRow
-                          className={`cursor-pointer hover:bg-muted/50 ${
-                            isExpanded ? 'bg-muted/30' : ''
-                          }`}
-                          onClick={() => hasPrices && toggleExpand(product.id)}
-                        >
-                          <TableCell className="pl-4 md:pl-6 shrink-0">
-                            {hasPrices && (
-                              <button className="hover:bg-muted rounded p-1">
-                                {isExpanded ? (
-                                  <ChevronDown className="h-4 w-4" />
-                                ) : (
-                                  <ChevronRight className="h-4 w-4" />
-                                )}
-                              </button>
-                            )}
-                          </TableCell>
-                          <TableCell className="font-medium min-w-0 overflow-hidden">
-                            <span className="block truncate" title={product.name}>
-                              {product.name}
-                            </span>
-                          </TableCell>
-                          <TableCell className="min-w-0 overflow-hidden">
-                            <code
-                              className="text-xs bg-muted px-2 py-1 rounded truncate block"
-                              title={product.ref}
-                            >
-                              {product.ref}
-                            </code>
-                          </TableCell>
-                          <TableCell className="shrink-0">
-                            <Badge
-                              variant={product.active ? 'default' : 'secondary'}
-                              className={
-                                product.active
-                                  ? 'bg-success/10 text-success hover:bg-success/20'
-                                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                              }
-                            >
-                              {product.active ? (
+                      <Card key={product.id} className="py-0 gap-0 overflow-hidden">
+                        {/* Cabeçalho do Produto */}
+                        <CardHeader className="p-4 sm:p-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0 flex-1 space-y-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="text-base font-semibold tracking-tight text-foreground">
+                                {product.name}
+                              </h3>
+                              <Badge
+                                variant={product.active ? 'default' : 'secondary'}
+                                className={
+                                  product.active
+                                    ? 'bg-success/10 text-success border-transparent'
+                                    : 'bg-muted text-muted-foreground border-transparent'
+                                }
+                              >
+                                <span
+                                  className={`size-1.5 rounded-full ${
+                                    product.active ? 'bg-success' : 'bg-muted-foreground'
+                                  }`}
+                                />
+                                {product.active ? CONTENT.status.active : CONTENT.status.inactive}
+                              </Badge>
+                              <code className="text-xs bg-muted px-2 py-0.5 rounded font-mono text-muted-foreground">
+                                {product.ref}
+                              </code>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                              <span className="tabular-nums">
+                                {prices.length} {prices.length === 1 ? 'preço' : 'preços'}
+                              </span>
+                              {methods.length > 0 && (
                                 <>
-                                  <CheckCircle2 className="h-3 w-3 mr-1" />
-                                  {CONTENT.status.active}
-                                </>
-                              ) : (
-                                <>
-                                  <XCircle className="h-3 w-3 mr-1" />
-                                  {CONTENT.status.inactive}
+                                  <span>·</span>
+                                  <span>
+                                    {methods.map((m) => PAYMENT_METHOD_LABEL[m] ?? m).join(', ')}
+                                  </span>
                                 </>
                               )}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right shrink-0">
-                            <Badge variant="outline">{product.prices?.length || 0}</Badge>
-                          </TableCell>
-                          <TableCell className="text-right text-sm text-muted-foreground shrink-0 overflow-hidden">
-                            <span
-                              className="block truncate"
-                              title={
-                                product.created_at
-                                  ? formatDistanceToNow(new Date(product.created_at), {
+                              {product.created_at && (
+                                <>
+                                  <span>·</span>
+                                  <span>
+                                    Criado{' '}
+                                    {formatDistanceToNow(new Date(product.created_at), {
                                       addSuffix: true,
                                       locale: ptBR,
-                                    })
-                                  : ''
-                              }
-                            >
-                              {product.created_at
-                                ? formatDistanceToNow(new Date(product.created_at), {
-                                    addSuffix: true,
-                                    locale: ptBR,
-                                  })
-                                : '—'}
-                            </span>
-                          </TableCell>
-                          <TableCell className="pr-2 md:pr-4 shrink-0">
+                                    })}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Ações do produto */}
+                          <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                            {prices.length > 0 && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => toggleCollapse(product.id)}
+                                className="text-muted-foreground"
+                              >
+                                {isCollapsed ? (
+                                  <>
+                                    <ChevronDown className="size-4" />
+                                    Mostrar preços
+                                  </>
+                                ) : (
+                                  <>
+                                    <ChevronUp className="size-4" />
+                                    Ocultar preços
+                                  </>
+                                )}
+                              </Button>
+                            )}
                             <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                downloadProductJson(product)
-                              }}
-                              className="h-8 w-8"
-                              title={CONTENT.downloadJson}
-                            >
-                              <Download className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={(e) => {
-                                e.stopPropagation()
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
                                 setCreatingNew(false)
                                 setEditingProduct(product)
                               }}
-                              className="h-8 w-8"
-                              title={CONTENT.edit}
                             >
-                              <Pencil className="h-4 w-4" />
+                              <Pencil className="size-3.5" />
+                              {CONTENT.edit}
                             </Button>
                             <Button
                               variant="ghost"
-                              size="icon"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setProductToDelete(product)
-                              }}
-                              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                              title={CONTENT.delete.confirm}
+                              size="icon-sm"
+                              onClick={() => downloadProductJson(product)}
+                              title={CONTENT.downloadJson}
+                              aria-label={CONTENT.downloadJson}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Download className="size-4" />
                             </Button>
-                          </TableCell>
-                        </TableRow>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => setProductToDelete(product)}
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                              title={CONTENT.delete.confirm}
+                              aria-label={CONTENT.delete.title}
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </div>
+                        </CardHeader>
 
-                        {/* Expanded row with prices */}
-                        {isExpanded && hasPrices && (
-                          <TableRow key={`${product.id}-prices`} className="border-b">
-                            <TableCell colSpan={7} className="bg-muted/20 p-0">
-                              <div className="px-2 md:px-4 py-4 min-w-0">
-                                <Table className="w-full table-fixed">
-                                  <TableHeader>
-                                    <TableRow>
-                                      <TableHead className="w-[18%] min-w-0">
-                                        {CONTENT.pricesTable.name}
-                                      </TableHead>
-                                      <TableHead className="w-[12%] shrink-0">
-                                        {CONTENT.pricesTable.value}
-                                      </TableHead>
-                                      <TableHead className="w-[17%] shrink-0">
-                                        {CONTENT.pricesTable.cash}
-                                      </TableHead>
-                                      <TableHead className="w-[17%] shrink-0">
-                                        {CONTENT.pricesTable.installmentMax}
-                                      </TableHead>
-                                      <TableHead className="w-[10%] shrink-0">
-                                        {CONTENT.table.header.type}
-                                      </TableHead>
-                                      <TableHead className="w-[9%] min-w-0">
-                                        {CONTENT.table.header.recurrence}
-                                      </TableHead>
-                                      <TableHead className="w-10 shrink-0">
-                                        {CONTENT.table.header.status}
-                                      </TableHead>
-                                      <TableHead className="w-20 shrink-0 text-right">
-                                        {CONTENT.pricesTable.link}
-                                      </TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {product.prices!.map((price, priceIndex) => {
-                                      const meta = (price.metadata as Record<string, unknown>) || {}
-                                      const priceName =
-                                        (typeof meta.title === 'string' && meta.title.trim()) ||
-                                        price.ref ||
-                                        `${CONTENT.pricesTable.priceLabel} ${priceIndex + 1}`
-                                      return (
-                                        <TableRow key={price.id}>
-                                          <TableCell className="font-medium min-w-0 overflow-hidden">
-                                            <span className="block truncate" title={priceName}>
-                                              {priceName}
-                                            </span>
-                                          </TableCell>
-                                          <TableCell className="font-mono font-bold text-sm shrink-0 overflow-hidden">
-                                            <span
-                                              className="block truncate"
-                                              title={formatPrice(price.amount)}
+                        {/* Grid de Preços do Produto */}
+                        {!isCollapsed && (
+                          <CardContent className="border-t border-border/70 bg-muted/25 p-4 sm:p-5">
+                            {prices.length === 0 ? (
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-dashed border-border bg-background/60 px-4 py-3">
+                                <span className="text-sm text-muted-foreground">
+                                  {CONTENT.prices.empty}
+                                </span>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setCreatingNew(false)
+                                    setEditingProduct(product)
+                                  }}
+                                >
+                                  <Plus className="size-3.5" />
+                                  {CONTENT.prices.addPrice}
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                                {prices.map((price, priceIndex) => {
+                                  const meta = (price.metadata as Record<string, unknown>) || {}
+                                  const priceName =
+                                    (typeof meta.title === 'string' && meta.title.trim()) ||
+                                    price.ref ||
+                                    `${CONTENT.prices.priceLabel} ${priceIndex + 1}`
+                                  const cash = getCashPrice(price.amount, meta)
+                                  const maxInst =
+                                    typeof meta?.max_installments === 'number' &&
+                                    meta.max_installments > 1
+                                      ? meta.max_installments
+                                      : 0
+                                  const parcelCents = maxInst
+                                    ? Math.round(price.amount / maxInst)
+                                    : 0
+                                  const suffix = formatRecurrenceSuffix(
+                                    price.recurring,
+                                    price.interval,
+                                    price.interval_count
+                                  )
+                                  const isCopied = copiedPriceId === price.id
+
+                                  return (
+                                    <div
+                                      key={price.id}
+                                      className="flex flex-col justify-between gap-3 rounded-lg border border-border bg-card p-4 shadow-2xs transition-colors hover:border-border/90"
+                                    >
+                                      <div className="space-y-2.5">
+                                        {/* Topo do card de preço */}
+                                        <div className="flex items-start justify-between gap-2">
+                                          <div className="min-w-0">
+                                            <p
+                                              className="font-medium text-sm text-foreground truncate"
+                                              title={priceName}
                                             >
+                                              {priceName}
+                                            </p>
+                                            {price.ref && price.ref !== priceName && (
+                                              <code className="text-[11px] text-muted-foreground font-mono truncate block">
+                                                {price.ref}
+                                              </code>
+                                            )}
+                                          </div>
+                                          <div className="flex items-center gap-1.5 shrink-0">
+                                            <Badge variant="outline" className="text-[11px]">
+                                              {formatRecurrenceBadge(
+                                                price.recurring,
+                                                price.interval,
+                                                price.interval_count
+                                              )}
+                                            </Badge>
+                                            {!price.active && (
+                                              <Badge variant="secondary" className="text-[11px]">
+                                                {CONTENT.status.inactive}
+                                              </Badge>
+                                            )}
+                                          </div>
+                                        </div>
+
+                                        {/* Valor e condições */}
+                                        <div className="space-y-1">
+                                          <div className="flex items-baseline gap-1">
+                                            <span className="text-xl font-bold tracking-tight tabular-nums text-foreground">
                                               {formatPrice(price.amount)}
                                             </span>
-                                          </TableCell>
-                                          <TableCell className="shrink-0 overflow-hidden">
-                                            {(() => {
-                                              const cash = getCashPrice(price.amount, meta)
-                                              if (!cash)
-                                                return (
-                                                  <span className="text-muted-foreground">—</span>
-                                                )
-                                              return (
-                                                <span
-                                                  className="text-sm font-medium text-primary"
-                                                  title={`${cash.pct}% de desconto`}
-                                                >
-                                                  {formatPrice(cash.cashCents)} ({cash.pct}%)
-                                                </span>
-                                              )
-                                            })()}
-                                          </TableCell>
-                                          <TableCell className="shrink-0 overflow-hidden">
-                                            {(() => {
-                                              const maxInst =
-                                                typeof meta?.max_installments === 'number' &&
-                                                meta.max_installments > 1
-                                                  ? meta.max_installments
-                                                  : 0
-                                              if (!maxInst)
-                                                return (
-                                                  <span className="text-muted-foreground">—</span>
-                                                )
-                                              const parcelCents = Math.round(price.amount / maxInst)
-                                              return (
-                                                <span
-                                                  className="text-sm"
-                                                  title={`${maxInst}x ${formatPrice(parcelCents)}`}
-                                                >
-                                                  {maxInst}x {formatPrice(parcelCents)}
-                                                </span>
-                                              )
-                                            })()}
-                                          </TableCell>
-                                          <TableCell className="shrink-0 overflow-hidden">
-                                            <Badge
-                                              variant="secondary"
-                                              className="text-xs truncate max-w-full"
-                                            >
-                                              {price.recurring
-                                                ? CONTENT.price.recurring
-                                                : CONTENT.price.oneTime}
-                                            </Badge>
-                                          </TableCell>
-                                          <TableCell className="min-w-0 overflow-hidden">
-                                            {price.recurring && price.interval ? (
-                                              <span
-                                                className="text-sm truncate block"
-                                                title={
-                                                  price.interval_count && price.interval_count > 1
-                                                    ? `A cada ${price.interval_count} ${price.interval}s`
-                                                    : `A cada ${price.interval}`
-                                                }
-                                              >
-                                                {price.interval_count && price.interval_count > 1
-                                                  ? `A cada ${price.interval_count} ${price.interval}s`
-                                                  : `A cada ${price.interval}`}
-                                              </span>
-                                            ) : (
-                                              <span className="text-sm text-muted-foreground">
-                                                —
+                                            {suffix && (
+                                              <span className="text-xs text-muted-foreground">
+                                                {suffix}
                                               </span>
                                             )}
-                                          </TableCell>
-                                          <TableCell className="shrink-0">
-                                            <Badge
-                                              variant={price.active ? 'default' : 'secondary'}
-                                              className={
-                                                price.active
-                                                  ? 'bg-success/10 text-success'
-                                                  : 'bg-muted text-muted-foreground'
-                                              }
-                                            >
-                                              {price.active
-                                                ? CONTENT.status.active
-                                                : CONTENT.status.inactive}
-                                            </Badge>
-                                          </TableCell>
-                                          <TableCell className="text-right">
-                                            <div className="flex items-center justify-end gap-1">
-                                              <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => copyCheckoutLink(price.id)}
-                                                className="h-8"
-                                                title={
-                                                  copiedPriceId === price.id
-                                                    ? CONTENT.pricesTable.copied
-                                                    : CONTENT.pricesTable.copyLink
-                                                }
-                                              >
-                                                <Copy className="h-3 w-3" />
-                                              </Button>
-                                              <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                title={CONTENT.deletePrice.title}
-                                                onClick={(e) => {
-                                                  e.stopPropagation()
-                                                  setPriceToDelete({
-                                                    productId: product.id,
-                                                    priceId: price.id,
-                                                  })
-                                                }}
-                                              >
-                                                <Trash2 className="h-3 w-3" />
-                                              </Button>
+                                          </div>
+
+                                          {(cash || maxInst > 0) && (
+                                            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground tabular-nums">
+                                              {cash && (
+                                                <span className="text-primary font-medium">
+                                                  À vista: {formatPrice(cash.cashCents)} (-
+                                                  {cash.pct}%)
+                                                </span>
+                                              )}
+                                              {maxInst > 0 && (
+                                                <span>
+                                                  Até {maxInst}x de {formatPrice(parcelCents)}
+                                                </span>
+                                              )}
                                             </div>
-                                          </TableCell>
-                                        </TableRow>
-                                      )
-                                    })}
-                                  </TableBody>
-                                </Table>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {/* Rodapé com ação principal de copiar link */}
+                                      <div className="flex items-center gap-1.5 pt-2 border-t border-border/50">
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="flex-1 h-8 text-xs"
+                                          onClick={() => copyCheckoutLink(price.id)}
+                                        >
+                                          {isCopied ? (
+                                            <>
+                                              <Check className="size-3.5 text-success" />
+                                              <span className="text-success">
+                                                {CONTENT.prices.copied}
+                                              </span>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Copy className="size-3.5" />
+                                              <span>{CONTENT.prices.copyLink}</span>
+                                            </>
+                                          )}
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon-sm"
+                                          className="text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
+                                          title={CONTENT.deletePrice.title}
+                                          aria-label={CONTENT.deletePrice.title}
+                                          onClick={() =>
+                                            setPriceToDelete({
+                                              productId: product.id,
+                                              priceId: price.id,
+                                            })
+                                          }
+                                        >
+                                          <Trash2 className="size-3.5" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
                               </div>
-                            </TableCell>
-                          </TableRow>
+                            )}
+                          </CardContent>
                         )}
-                      </Fragment>
+                      </Card>
                     )
                   })}
-                </Fragment>
-              ))}
-            </TableBody>
-          </Table>
+                </div>
+              </section>
+            ))}
+          </div>
         )}
-      </AdminTableWrapper>
+      </div>
 
       <EditProductDialog
         product={creatingNew ? null : editingProduct}

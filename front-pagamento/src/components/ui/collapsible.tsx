@@ -11,16 +11,26 @@ function Collapsible({ ...props }: React.ComponentProps<typeof CollapsiblePrimit
 function CollapsibleTrigger({
   asChild = false,
   render,
+  nativeButton,
   children,
   ...props
 }: React.ComponentProps<typeof CollapsiblePrimitive.Trigger> & { asChild?: boolean }) {
   const resolvedRender =
     render ?? (asChild && React.isValidElement(children) ? children : undefined)
 
+  const inferredNativeButton =
+    nativeButton ??
+    (React.isValidElement(resolvedRender) &&
+    typeof resolvedRender.type === 'string' &&
+    resolvedRender.type !== 'button'
+      ? false
+      : undefined)
+
   return (
     <CollapsiblePrimitive.Trigger
       data-slot="collapsible-trigger"
       render={resolvedRender}
+      nativeButton={inferredNativeButton}
       {...props}
     >
       {resolvedRender && asChild ? undefined : children}

@@ -2,17 +2,27 @@
 
 import * as React from 'react'
 
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 
-function Table({ className, ...props }: React.ComponentProps<'table'>) {
+interface TableProps extends React.ComponentProps<'table'> {
+  containerClassName?: string
+}
+
+function Table({ className, containerClassName, ...props }: TableProps) {
   return (
-    <div data-slot="table-container" className="relative w-full min-w-0 overflow-x-auto">
+    <ScrollArea
+      data-slot="table-container"
+      className={cn('relative w-full min-w-0', containerClassName)}
+      contentClassName="min-w-full"
+      orientation="horizontal"
+    >
       <table
         data-slot="table"
         className={cn('w-full caption-bottom text-sm', className)}
         {...props}
       />
-    </div>
+    </ScrollArea>
   )
 }
 

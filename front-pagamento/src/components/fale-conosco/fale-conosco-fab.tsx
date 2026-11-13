@@ -2,6 +2,8 @@
 
 import { useEffect, useId, useState } from 'react'
 
+import { usePathname } from 'next/navigation'
+
 import { Loader2, MessageCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -28,6 +30,7 @@ const CONTENT = {
 } as const
 
 export function FaleConoscoFab() {
+  const pathname = usePathname()
   const formId = useId()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -135,6 +138,10 @@ export function FaleConoscoFab() {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (pathname?.startsWith('/admin')) {
+    return null
   }
 
   return (

@@ -1,26 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 
+import { type ColumnDef } from '@tanstack/react-table'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Pencil, Plus, Power, PowerOff, TicketPercent, Trash2, X, XCircle } from 'lucide-react'
+import { Pencil, Plus, Power, PowerOff, TicketPercent, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { AdminTableWrapper } from '@/components/admin/admin-table-wrapper'
+import { AppDataTable } from '@/components/admin/app-data-table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { FilterCombobox, type FilterOption } from '@/components/ui/filter-combobox'
-import { Skeleton } from '@/components/ui/skeleton'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import type { AdminDiscountCoupon } from '@/hooks/admin/use-coupons'
 import { useCouponMutations, useCoupons } from '@/hooks/admin/use-coupons'
 
@@ -36,14 +28,6 @@ const CONTENT = {
   new: 'Novo cupom',
   filters: { status: 'Situação', clear: 'Limpar' },
   table: {
-    code: 'Código',
-    discount: 'Desconto',
-    applies: 'Fluxo',
-    scope: 'Escopo',
-    limits: 'Limites',
-    period: 'Período',
-    status: 'Status',
-    actions: 'Ações',
     empty: 'Nenhum cupom cadastrado',
     error: 'Erro ao carregar cupons',
   },
@@ -212,142 +196,161 @@ export function CouponsTable() {
     }
   }
 
-  return (
-    <div className="space-y-4 min-w-0">
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
-          <FilterCombobox
-            options={ACTIVE_OPTIONS}
-            value={activeFilter || null}
-            onValueChange={(v) => setActiveFilter(v ?? 'all')}
-            placeholder={CONTENT.filters.status}
-            emptyText="—"
-          />
-          {activeFilter !== 'all' && (
-            <Button variant="outline" size="sm" onClick={() => setActiveFilter('all')}>
-              <X className="h-4 w-4 mr-2" />
-              {CONTENT.filters.clear}
-            </Button>
-          )}
-        </div>
-        <Button type="button" onClick={openCreate} className="w-full sm:w-auto shrink-0">
-          <Plus className="h-4 w-4 mr-2" />
-          {CONTENT.new}
-        </Button>
-      </div>
+  const columns = useMemo<ColumnDef<AdminDiscountCoupon>[]>(
+    () => [
+      {
+        accessorKey: 'code',
+        header: 'Código',
+        meta: { cellClassName: 'font-mono font-medium whitespace-nowrap' },
+        cell: ({ row }) => (
+          <code className="text-xs bg-muted px-2 py-1 rounded">{row.original.code}</code>
+        ),
+      },
+      {
+        id: 'discount',
+        header: 'Desconto',
+        meta: {
+          headerClassName: 'text-right',
+          cellClassName: 'text-right font-mono font-semibold tabular-nums whitespace-nowrap',
+        },
+        cell: ({ row }) => formatDiscount(row.original),
+      },
+      {
+        accessorKey: 'applies_to',
+        header: 'Fluxo',
+        meta: { cellClassName: 'whitespace-nowrap' },
+        cell: ({ row }) => (
+          <Badge variant="outline" className="text-xs">
+            {CONTENT.applies[row.original.applies_to]}
+          </Badge>
+        ),
+      },
+      {
+        id: 'scope',
+        header: 'Escopo',
+        cell: ({ row }) => {
+          const label = scopeLabel(row.original)
+          return (
+            <span className="block max-w-[200px] truncate text-sm" title={label}>
+              {label}
+            </span>
+          )
+        },
+      },
+      {
+        id: 'limits',
+        header: 'Limites',
+        meta: { cellClassName: 'text-muted-foreground text-sm tabular-nums whitespace-nowrap' },
+        cell: ({ row }) => limitsLabel(row.original),
+      },
+      {
+        id: 'period',
+        header: 'Período',
+        meta: { cellClassName: 'text-muted-foreground text-sm tabular-nums whitespace-nowrap' },
+        cell: ({ row }) => periodLabel(row.original),
+      },
+      {
+        accessorKey: 'active',
+        header: 'Status',
+        meta: { cellClassName: 'whitespace-nowrap' },
+        cell: ({ row }) => (
+          <Badge variant={row.original.active ? 'default' : 'secondary'}>
+            {row.original.active ? 'Ativo' : 'Inativo'}
+          </Badge>
+        ),
+      },
+      {
+        id: 'actions',
+        header: 'Ações',
+        meta: {
+          headerClassName: 'text-right w-28',
+          cellClassName: 'text-right whitespace-nowrap',
+        },
+        cell: ({ row }) => {
+          const c = row.original
+          return (
+            <div className="flex items-center justify-end gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                disabled={setActive.isPending && setActive.variables?.id === c.id}
+                onClick={() => void handleToggleActive(c)}
+                aria-label={
+                  c.active ? CONTENT.toggleActive.deactivateAria : CONTENT.toggleActive.activateAria
+                }
+              >
+                {c.active ? (
+                  <PowerOff className="size-4 text-muted-foreground" />
+                ) : (
+                  <Power className="size-4 text-muted-foreground" />
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => openEdit(c)}
+                aria-label="Editar"
+              >
+                <Pencil className="size-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={() => setDeleteTarget(c)}
+                aria-label="Excluir"
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </div>
+          )
+        },
+      },
+    ],
+    [setActive.isPending, setActive.variables]
+  )
 
-      <AdminTableWrapper aria-label="Lista de cupons">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{CONTENT.table.code}</TableHead>
-              <TableHead>{CONTENT.table.discount}</TableHead>
-              <TableHead>{CONTENT.table.applies}</TableHead>
-              <TableHead className="hidden lg:table-cell">{CONTENT.table.scope}</TableHead>
-              <TableHead className="hidden md:table-cell">{CONTENT.table.limits}</TableHead>
-              <TableHead className="hidden xl:table-cell">{CONTENT.table.period}</TableHead>
-              <TableHead>{CONTENT.table.status}</TableHead>
-              <TableHead className="text-right w-[1%]">{CONTENT.table.actions}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              Array.from({ length: 6 }).map((_, i) => (
-                <TableRow key={i}>
-                  {Array.from({ length: 8 }).map((__, j) => (
-                    <TableCell key={j}>
-                      <Skeleton className="h-4 w-full max-w-[8rem]" />
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : error ? (
-              <TableRow>
-                <TableCell
-                  colSpan={8}
-                  className="p-8 md:p-12 text-center border-t border-destructive/20 bg-destructive/10"
-                >
-                  <XCircle className="h-10 w-10 text-destructive mx-auto mb-3" />
-                  <p className="text-destructive font-medium">{CONTENT.table.error}</p>
-                </TableCell>
-              </TableRow>
-            ) : coupons.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} className="p-8 md:p-12 text-center text-muted-foreground">
-                  <TicketPercent className="h-10 w-10 mx-auto mb-3 opacity-50" />
-                  {CONTENT.table.empty}
-                </TableCell>
-              </TableRow>
-            ) : (
-              coupons.map((c) => (
-                <TableRow key={c.id}>
-                  <TableCell className="font-mono font-medium">{c.code}</TableCell>
-                  <TableCell>{formatDiscount(c)}</TableCell>
-                  <TableCell>{CONTENT.applies[c.applies_to]}</TableCell>
-                  <TableCell
-                    className="hidden lg:table-cell max-w-[14rem] truncate"
-                    title={scopeLabel(c)}
-                  >
-                    {scopeLabel(c)}
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
-                    {limitsLabel(c)}
-                  </TableCell>
-                  <TableCell className="hidden xl:table-cell text-muted-foreground text-sm whitespace-nowrap">
-                    {periodLabel(c)}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={c.active ? 'default' : 'secondary'}>
-                      {c.active ? 'Ativo' : 'Inativo'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right whitespace-nowrap">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      disabled={setActive.isPending && setActive.variables?.id === c.id}
-                      onClick={() => void handleToggleActive(c)}
-                      aria-label={
-                        c.active
-                          ? CONTENT.toggleActive.deactivateAria
-                          : CONTENT.toggleActive.activateAria
-                      }
-                    >
-                      {c.active ? (
-                        <PowerOff className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <Power className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => openEdit(c)}
-                      aria-label="Editar"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => setDeleteTarget(c)}
-                      aria-label="Excluir"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </AdminTableWrapper>
+  const toolbar = (
+    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+      <div className="flex flex-wrap items-center gap-2">
+        <FilterCombobox
+          options={ACTIVE_OPTIONS}
+          value={activeFilter || null}
+          onValueChange={(v) => setActiveFilter(v ?? 'all')}
+          placeholder={CONTENT.filters.status}
+          emptyText="—"
+        />
+        {activeFilter !== 'all' && (
+          <Button variant="outline" size="sm" onClick={() => setActiveFilter('all')}>
+            <X className="size-4" />
+            {CONTENT.filters.clear}
+          </Button>
+        )}
+      </div>
+      <Button type="button" onClick={openCreate} className="w-full sm:w-auto shrink-0">
+        <Plus className="size-4" />
+        {CONTENT.new}
+      </Button>
+    </div>
+  )
+
+  return (
+    <>
+      <AppDataTable
+        ariaLabel="Lista de cupons"
+        columns={columns}
+        data={coupons}
+        isLoading={isLoading}
+        error={error ? CONTENT.table.error : null}
+        errorTitle={CONTENT.table.error}
+        emptyIcon={<TicketPercent className="size-10 text-muted-foreground/60" />}
+        emptyTitle={CONTENT.table.empty}
+        toolbar={toolbar}
+        getRowId={(row) => row.id}
+      />
 
       <CouponFormDialog
         open={formOpen}
@@ -366,6 +369,6 @@ export function CouponsTable() {
         variant="destructive"
         onConfirm={() => void handleDelete()}
       />
-    </div>
+    </>
   )
 }
