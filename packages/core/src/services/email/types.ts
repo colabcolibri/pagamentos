@@ -52,6 +52,7 @@ export interface SmtpOverrides {
 
 export interface EmailDispatchOptions {
   brandName?: string | null;
+  brandLogoUrl?: string | null;
   footerText?: string | null;
   companyLine?: string | null;
   fromEmail?: string | null;
@@ -140,6 +141,8 @@ export interface EmailTemplateData {
   paymentOptions?: string;
   subject: string;
   fromName: string;
+  brandName?: string | null;
+  brandLogoUrl?: string | null;
   customMessage: string;
   instructions?: string;
   nextSteps?: string[];

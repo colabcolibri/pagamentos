@@ -2,20 +2,68 @@
 
 import { useQuery } from '@tanstack/react-query'
 
-interface DashboardStats {
+export type DashboardPeriod = 'today' | '7d' | '30d' | 'month' | '90d' | 'all'
+export type DashboardGateway = 'all' | 'asaas' | 'pagarme'
+
+export interface DashboardFilter {
+  period: DashboardPeriod
+  gateway: DashboardGateway
+}
+
+export interface DashboardSeriesPoint {
+  bucket: string
+  label: string
+  revenueCents: number
+  paidOrders: number
+  totalOrders: number
+}
+
+export interface DashboardMethodBreakdown {
+  method: string
+  count: number
+  revenueCents: number
+}
+
+export interface DashboardGatewayBreakdown {
+  gateway: string
+  count: number
+  revenueCents: number
+}
+
+export interface DashboardTopProduct {
+  id: string
+  name: string
+  count: number
+  revenueCents: number
+}
+
+export interface DashboardRecentOrder {
+  id: string
+  status: string
+  amountCents: number
+  paymentMethod: string
+  paymentGateway: string
+  productName: string
+  createdAt: string
+}
+
+export interface DashboardStats {
+  filter: DashboardFilter
   products: {
     total: number
     active: number
   }
   payments: {
     total: number
-    thisMonth: number
+    paidCount: number
     revenue: number
+    averageTicketCents: number
   }
   orders: {
     total: number
     pending: number
     paid: number
+    conversionRate: number
   }
   subscriptions: {
     total: number
@@ -25,13 +73,22 @@ interface DashboardStats {
     total: number
     today: number
   }
+  series: DashboardSeriesPoint[]
+  byMethod: DashboardMethodBreakdown[]
+  byGateway: DashboardGatewayBreakdown[]
+  topProducts: DashboardTopProduct[]
+  recentOrders: DashboardRecentOrder[]
 }
 
-async function fetchDashboardStats(): Promise<DashboardStats> {
-  const response = await fetch('/api/admin/dashboard/stats')
+async function fetchDashboardStats(filter: DashboardFilter): Promise<DashboardStats> {
+  const params = new URLSearchParams({
+    period: filter.period,
+    gateway: filter.gateway,
+  })
+  const response = await fetch(`/api/admin/dashboard/stats?${params.toString()}`)
 
   if (!response.ok) {
-    const error = await response.json()
+    const error = await response.json().catch(() => ({}))
     throw new Error(error.error || 'Erro ao buscar estatísticas do dashboard')
   }
 
@@ -39,11 +96,11 @@ async function fetchDashboardStats(): Promise<DashboardStats> {
   return stats
 }
 
-export function useDashboardStats() {
+export function useDashboardStats(filter: DashboardFilter = { period: '30d', gateway: 'all' }) {
   return useQuery({
-    queryKey: ['admin', 'dashboard', 'stats'],
-    queryFn: fetchDashboardStats,
-    staleTime: 5 * 60 * 1000, // 5 minutos
-    refetchInterval: 5 * 60 * 1000, // Auto-refetch a cada 5 minutos
+    queryKey: ['admin', 'dashboard', 'stats', filter.period, filter.gateway],
+    queryFn: () => fetchDashboardStats(filter),
+    staleTime: 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
   })
 }

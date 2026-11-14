@@ -11,8 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { usePlatformSettings } from '@/hooks/admin/use-platform-settings'
-
-const MAX_LOGO_BYTES = 512 * 1024
+import { compressLogoFile, formatBytesCompact } from '@/lib/brand/compress-logo'
 
 export function BrandSettingsCard({ onSaved }: { onSaved?: () => void } = {}) {
   const updateBrand = useBrandUpdate()
@@ -53,22 +52,18 @@ export function BrandSettingsCard({ onSaved }: { onSaved?: () => void } = {}) {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) return
-    if (file.size > MAX_LOGO_BYTES) {
-      toast.error('A logo deve ter no máximo 512 KB.')
-      return
-    }
-    const reader = new FileReader()
-    reader.onload = () => {
-      const result = typeof reader.result === 'string' ? reader.result : ''
-      const base64 = result.split(',')[1] ?? ''
-      if (!base64) {
-        toast.error('Não foi possível ler o arquivo da logo.')
-        return
-      }
-      setPendingLogo({ mime: file.type, base64, preview: result })
+    try {
+      const result = await compressLogoFile(file)
+      setPendingLogo({ mime: result.mime, base64: result.base64, preview: result.preview })
       setClearLogo(false)
+      if (result.compressedBytes < result.originalBytes) {
+        toast.success(
+          `Logo otimizada (${formatBytesCompact(result.originalBytes)} → ${formatBytesCompact(result.compressedBytes)}).`
+        )
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Não foi possível processar a logo.')
     }
-    reader.readAsDataURL(file)
   }
 
   async function handleSave() {

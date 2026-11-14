@@ -49,6 +49,7 @@ export function buildEmailFooterText(input?: {
 export function renderEmailDocument(input: {
   title: string
   brandName: string
+  brandLogoUrl?: string | null
   body: string
   footer?: string
   footerText?: string | null
@@ -60,6 +61,10 @@ export function renderEmailDocument(input: {
       footerText: input.footerText,
       companyLine: input.companyLine,
     })
+
+  const headerHtml = input.brandLogoUrl
+    ? `<img src="${escapeEmailHtml(input.brandLogoUrl)}" alt="${escapeEmailHtml(input.brandName)}" style="max-height:36px;max-width:180px;width:auto;height:auto;display:block;border:0;" />`
+    : `<p style="margin:0;font-size:20px;font-weight:700;letter-spacing:-0.02em;">${escapeEmailHtml(input.brandName)}</p>`
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -76,7 +81,7 @@ export function renderEmailDocument(input: {
           <tr><td style="height:4px;background-color:${emailBrand.primary};"></td></tr>
           <tr>
             <td style="padding:24px 28px 16px;border-bottom:1px solid ${emailBrand.border};">
-              <p style="margin:0;font-size:20px;font-weight:700;letter-spacing:-0.02em;">${escapeEmailHtml(input.brandName)}</p>
+              ${headerHtml}
             </td>
           </tr>
           <tr><td style="padding:28px;">${input.body}</td></tr>

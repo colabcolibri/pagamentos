@@ -142,7 +142,8 @@ export function generateEmailHtml(data: EmailTemplateData): string {
   `
   return renderEmailDocument({
     title: data.subject,
-    brandName: data.fromName,
+    brandName: data.brandName?.trim() || data.fromName,
+    brandLogoUrl: data.brandLogoUrl,
     body: content,
     footerText: data.footerText,
     companyLine: data.companyLine,

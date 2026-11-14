@@ -9,106 +9,139 @@ import {
   AlertCircle,
   ArrowRight,
   CreditCard,
+  Database,
   Package,
+  Rocket,
   ShoppingCart,
   Webhook,
 } from 'lucide-react'
 
 import { AdminPageLayout } from '@/components/admin/admin-page-layout'
+import {
+  PaymentBreakdownCard,
+  RevenueTrendChart,
+  TopProductsAndRecentOrders,
+} from '@/components/admin/dashboard-charts'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useDashboardStats } from '@/hooks/admin'
+import {
+  type DashboardGateway,
+  type DashboardPeriod,
+  useDashboardStats,
+} from '@/hooks/admin/use-dashboard-stats'
+import { useSetupStatus } from '@/hooks/admin/use-setup-status'
+import { cn } from '@/lib/utils'
 
-const CONTENT = {
-  title: 'Dashboard',
-  subtitle: 'Visão geral da operação e saúde do sistema',
-  actions: {
-    newProduct: 'Produtos',
-    viewOrders: 'Ver pedidos',
-    openLink: 'Abrir',
-  },
-  kpis: {
-    revenue: 'Receita do mês',
-    orders: 'Pedidos',
-    products: 'Produtos',
-    subscriptions: 'Assinaturas',
-  },
-  descriptions: {
-    monthPayments: (count: number) => `${count} pagamentos este mês`,
-    ordersSummary: (pending: number, paid: number) => `${pending} pendentes · ${paid} pagos`,
-    activeProducts: (count: number) => `${count} produtos ativos`,
-    activeSubscriptions: (count: number) => `${count} assinaturas ativas`,
-    todayWebhooks: (today: number, total: number) => `${today} recebidos hoje · ${total} no total`,
-    coreVersion: (version: string) => `Versão ${version}`,
-    coreNotFound: 'Pacote não encontrado',
-  },
-  systemSection: {
-    title: 'Operação & Sistema',
-    webhooksLabel: 'Webhooks processados',
-    coreLabel: 'Pacote @quitou/core',
-    coreActive: 'Ativo',
-    coreError: 'Erro',
-  },
-  error: {
-    title: 'Erro ao carregar estatísticas',
-    description: 'Tente recarregar a página.',
-  },
-} as const
+const PERIOD_OPTIONS: { value: DashboardPeriod; label: string }[] = [
+  { value: 'today', label: 'Hoje' },
+  { value: '7d', label: '7 dias' },
+  { value: '30d', label: '30 dias' },
+  { value: 'month', label: 'Este mês' },
+  { value: '90d', label: '90 dias' },
+  { value: 'all', label: 'Tudo' },
+]
 
-type CoreStatus = {
-  installed: boolean
-  version?: string
-  error?: string
-}
+const GATEWAY_OPTIONS: { value: DashboardGateway; label: string }[] = [
+  { value: 'all', label: 'Todos gateways' },
+  { value: 'asaas', label: 'Asaas' },
+  { value: 'pagarme', label: 'Pagar.me' },
+]
 
 function formatBRL(cents: number): string {
   return `R$ ${(cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
 }
 
 export default function AdminDashboardPage() {
-  const { data: stats, isLoading: statsLoading, error: statsError } = useDashboardStats()
-  const [coreStatus, setCoreStatus] = useState<CoreStatus>({ installed: false })
+  const [period, setPeriod] = useState<DashboardPeriod>('30d')
+  const [gateway, setGateway] = useState<DashboardGateway>('all')
+
+  const {
+    data: stats,
+    isLoading: statsLoading,
+    error: statsError,
+  } = useDashboardStats({
+    period,
+    gateway,
+  })
+  const { status: setupStatus } = useSetupStatus()
+  const [dbHealthy, setDbHealthy] = useState<boolean | null>(null)
 
   useEffect(() => {
     fetch('/api/health')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.core) {
-          setCoreStatus(data.core)
-        }
+      .then((res) => res.json().then((body) => ({ ok: res.ok, body })))
+      .then(({ ok, body }) => {
+        setDbHealthy(Boolean(ok && body?.db === 'ok'))
       })
-      .catch((err) => {
-        setCoreStatus({
-          installed: false,
-          error: err instanceof Error ? err.message : CONTENT.descriptions.coreNotFound,
-        })
+      .catch(() => {
+        setDbHealthy(false)
       })
   }, [])
 
   return (
     <AdminPageLayout
-      title={CONTENT.title}
-      subtitle={CONTENT.subtitle}
+      title="Visão geral"
+      subtitle="Acompanhe vendas, pedidos e saúde operacional da plataforma"
       action={
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" render={<Link href="/admin/orders" />}>
-            {CONTENT.actions.viewOrders}
+            Ver pedidos
           </Button>
           <Button size="sm" render={<Link href="/admin/products" />}>
-            {CONTENT.actions.newProduct}
+            Novo produto
             <ArrowRight className="h-3.5 w-3.5" />
           </Button>
         </div>
       }
     >
-      <div className="space-y-10">
+      <div className="space-y-8">
+        {/* Barra de filtros */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-1 rounded-lg border bg-muted/30 p-1">
+            {PERIOD_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setPeriod(opt.value)}
+                className={cn(
+                  'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
+                  period === opt.value
+                    ? 'bg-background text-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1 rounded-lg border bg-muted/30 p-1">
+            {GATEWAY_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setGateway(opt.value)}
+                className={cn(
+                  'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
+                  gateway === opt.value
+                    ? 'bg-background text-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {statsError && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>{CONTENT.error.title}</AlertTitle>
-            <AlertDescription>{CONTENT.error.description}</AlertDescription>
+            <AlertTitle>Erro ao carregar dados</AlertTitle>
+            <AlertDescription>
+              Não foi possível carregar as estatísticas do dashboard.
+            </AlertDescription>
           </Alert>
         )}
 
@@ -123,28 +156,29 @@ export default function AdminDashboardPage() {
                 </div>
               ))}
             </div>
-            <div className="space-y-3">
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full" />
+            <div className="grid gap-6 lg:grid-cols-3">
+              <Skeleton className="h-64 lg:col-span-2" />
+              <Skeleton className="h-64" />
             </div>
           </div>
         ) : stats ? (
           <>
-            {/* KPI Strip minimalista */}
+            {/* KPI Strip minimalista condicionado aos filtros */}
             <section className="grid grid-cols-1 divide-y divide-border/60 border-y border-border/60 sm:grid-cols-2 lg:grid-cols-4 sm:divide-x sm:divide-y-0">
               <Link
                 href="/admin/payments"
                 className="group space-y-1.5 py-5 transition-colors hover:bg-muted/20 sm:px-5 first:sm:pl-0"
               >
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{CONTENT.kpis.revenue}</span>
+                  <span>Receita confirmada</span>
                   <CreditCard className="h-3.5 w-3.5 text-muted-foreground/70 transition-colors group-hover:text-primary" />
                 </div>
                 <p className="text-2xl font-semibold tracking-tight tabular-nums">
                   {formatBRL(stats.payments.revenue)}
                 </p>
                 <p className="text-xs text-muted-foreground tabular-nums">
-                  {CONTENT.descriptions.monthPayments(stats.payments.thisMonth)}
+                  {stats.payments.paidCount} pagos · ticket{' '}
+                  {formatBRL(stats.payments.averageTicketCents)}
                 </p>
               </Link>
 
@@ -153,14 +187,15 @@ export default function AdminDashboardPage() {
                 className="group space-y-1.5 py-5 transition-colors hover:bg-muted/20 sm:px-5"
               >
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{CONTENT.kpis.orders}</span>
+                  <span>Pedidos no filtro</span>
                   <ShoppingCart className="h-3.5 w-3.5 text-muted-foreground/70 transition-colors group-hover:text-primary" />
                 </div>
                 <p className="text-2xl font-semibold tracking-tight tabular-nums">
                   {stats.orders.total}
                 </p>
                 <p className="text-xs text-muted-foreground tabular-nums">
-                  {CONTENT.descriptions.ordersSummary(stats.orders.pending, stats.orders.paid)}
+                  {stats.orders.pending} pendentes · {stats.orders.paid} pagos (
+                  {stats.orders.conversionRate}% conv.)
                 </p>
               </Link>
 
@@ -169,14 +204,15 @@ export default function AdminDashboardPage() {
                 className="group space-y-1.5 py-5 transition-colors hover:bg-muted/20 sm:px-5"
               >
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{CONTENT.kpis.products}</span>
+                  <span>Produtos</span>
                   <Package className="h-3.5 w-3.5 text-muted-foreground/70 transition-colors group-hover:text-primary" />
                 </div>
                 <p className="text-2xl font-semibold tracking-tight tabular-nums">
                   {stats.products.total}
                 </p>
-                <p className="text-xs text-muted-foreground tabular-nums">
-                  {CONTENT.descriptions.activeProducts(stats.products.active)}
+                <p className="truncate text-xs text-muted-foreground tabular-nums">
+                  {stats.products.active} ativos
+                  {stats.topProducts[0] ? ` · líder: ${stats.topProducts[0].name}` : ''}
                 </p>
               </Link>
 
@@ -185,34 +221,45 @@ export default function AdminDashboardPage() {
                 className="group space-y-1.5 py-5 transition-colors hover:bg-muted/20 sm:px-5 last:sm:pr-0"
               >
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{CONTENT.kpis.subscriptions}</span>
+                  <span>Assinaturas</span>
                   <Activity className="h-3.5 w-3.5 text-muted-foreground/70 transition-colors group-hover:text-primary" />
                 </div>
                 <p className="text-2xl font-semibold tracking-tight tabular-nums">
                   {stats.subscriptions.total}
                 </p>
                 <p className="text-xs text-muted-foreground tabular-nums">
-                  {CONTENT.descriptions.activeSubscriptions(stats.subscriptions.active)}
+                  {stats.subscriptions.active} ativas
                 </p>
               </Link>
             </section>
 
-            {/* Operação & Sistema em lista limpa */}
+            {/* Gráficos filtráveis */}
+            <section className="grid gap-6 lg:grid-cols-3">
+              <div className="lg:col-span-2">
+                <RevenueTrendChart series={stats.series} />
+              </div>
+              <PaymentBreakdownCard byMethod={stats.byMethod} byGateway={stats.byGateway} />
+            </section>
+
+            {/* Top produtos e últimos pedidos */}
+            <TopProductsAndRecentOrders
+              topProducts={stats.topProducts}
+              recentOrders={stats.recentOrders}
+            />
+
+            {/* Operação & Sistema */}
             <section className="space-y-3">
               <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                {CONTENT.systemSection.title}
+                Operação & Sistema
               </h2>
               <div className="divide-y divide-border/60 border-y border-border/60">
                 <div className="flex items-center justify-between gap-4 py-3.5">
                   <div className="flex min-w-0 items-center gap-3">
                     <Webhook className="h-4 w-4 shrink-0 text-muted-foreground" />
                     <div className="min-w-0">
-                      <p className="text-sm font-medium">{CONTENT.systemSection.webhooksLabel}</p>
+                      <p className="text-sm font-medium">Webhooks processados</p>
                       <p className="text-xs text-muted-foreground tabular-nums">
-                        {CONTENT.descriptions.todayWebhooks(
-                          stats.webhooks.today,
-                          stats.webhooks.total
-                        )}
+                        {stats.webhooks.today} recebidos hoje · {stats.webhooks.total} no total
                       </p>
                     </div>
                   </div>
@@ -222,28 +269,64 @@ export default function AdminDashboardPage() {
                     className="gap-1.5"
                     render={<Link href="/admin/webhooks" />}
                   >
-                    {CONTENT.actions.openLink}
+                    Abrir
                     <ArrowRight className="h-3.5 w-3.5" />
                   </Button>
                 </div>
 
                 <div className="flex items-center justify-between gap-4 py-3.5">
                   <div className="flex min-w-0 items-center gap-3">
-                    <Package className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <Database className="h-4 w-4 shrink-0 text-muted-foreground" />
                     <div className="min-w-0">
-                      <p className="text-sm font-medium">{CONTENT.systemSection.coreLabel}</p>
-                      <p className="font-mono text-xs text-muted-foreground">
-                        {coreStatus.installed
-                          ? CONTENT.descriptions.coreVersion(coreStatus.version || '')
-                          : coreStatus.error || CONTENT.descriptions.coreNotFound}
+                      <p className="text-sm font-medium">Banco de dados (Postgres)</p>
+                      <p className="text-xs text-muted-foreground">
+                        {dbHealthy === null
+                          ? 'Verificando conexão...'
+                          : dbHealthy
+                            ? 'Conexão ativa e respondendo normalmente'
+                            : 'Falha ao responder o healthcheck do banco'}
                       </p>
                     </div>
                   </div>
-                  <Badge variant={coreStatus.installed ? 'default' : 'destructive'}>
-                    {coreStatus.installed
-                      ? CONTENT.systemSection.coreActive
-                      : CONTENT.systemSection.coreError}
+                  <Badge
+                    variant={
+                      dbHealthy === null ? 'secondary' : dbHealthy ? 'default' : 'destructive'
+                    }
+                  >
+                    {dbHealthy === null ? 'Verificando' : dbHealthy ? 'Conectado' : 'Erro'}
                   </Badge>
+                </div>
+
+                <div className="flex items-center justify-between gap-4 py-3.5">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Rocket className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">Setup inicial da instância</p>
+                      <p className="text-xs text-muted-foreground tabular-nums">
+                        {setupStatus
+                          ? setupStatus.readyToOperate
+                            ? `${setupStatus.completedCount}/${setupStatus.totalCount} etapas concluídas (${setupStatus.percent}%)`
+                            : `${setupStatus.requiredCompletedCount}/${setupStatus.requiredTotalCount} obrigatórios prontos`
+                          : 'Verificando status do setup...'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {setupStatus && (
+                      <Badge variant={setupStatus.readyToOperate ? 'default' : 'secondary'}>
+                        {setupStatus.readyToOperate ? 'Pronto' : 'Pendente'}
+                      </Badge>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1.5"
+                      render={<Link href="/admin/setup" />}
+                    >
+                      Abrir
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             </section>

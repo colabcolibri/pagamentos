@@ -1,28 +1,35 @@
 import { NextResponse } from 'next/server'
 
+import {
+  type DashboardGateway,
+  type DashboardPeriod,
+  dashboardGatewaySchema,
+  dashboardPeriodSchema,
+} from '@/lib/admin/dashboard-filter'
 import { loadDashboardStats } from '@/lib/admin/dashboard-stats'
 import { requireAdmin } from '@/lib/auth'
 import { createApiHandler } from '@/lib/errors'
 
 /**
- * GET /api/admin/dashboard/stats
- * Retorna estatísticas do dashboard admin
- * - Total de produtos (total e ativos)
- * - Total de pagamentos (total, do mês, revenue)
- * - Total de pedidos (total, pendentes, pagos)
- * - Total de assinaturas (total e ativas)
- * - Total de webhooks (total e hoje)
- * - Requer autenticação e permissão de admin
+ * GET /api/admin/dashboard/stats?period=30d&gateway=all
+ * Retorna estatísticas e séries do dashboard admin filtradas por período e gateway.
  */
 export const GET = createApiHandler(
-  async (_request: Request) => {
-    // Verificar autenticação e admin
+  async (request: Request) => {
     const authResult = await requireAdmin()
     if (!authResult.success) {
       return authResult.response
     }
 
-    return NextResponse.json({ stats: await loadDashboardStats() })
+    const { searchParams } = new URL(request.url)
+    const period: DashboardPeriod = dashboardPeriodSchema
+      .catch('30d')
+      .parse(searchParams.get('period'))
+    const gateway: DashboardGateway = dashboardGatewaySchema
+      .catch('all')
+      .parse(searchParams.get('gateway'))
+
+    return NextResponse.json({ stats: await loadDashboardStats({ period, gateway }) })
   },
   { module: 'admin', action: 'get_dashboard_stats' }
 )

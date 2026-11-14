@@ -23,6 +23,12 @@ export function createDispatcher(tools: readonly McpTool[]) {
         protocolVersion: '2025-03-26',
         capabilities: { tools: { listChanged: false } },
         serverInfo: { name: 'quitou', version: '1' },
+        instructions: [
+          'Servidor MCP administrativo do Quitou.',
+          'Para relatórios, KPIs e dados de gráficos use resumo_ler com os filtros opcionais period (today, 7d, 30d, month, 90d, all) e gateway (all, asaas, pagarme).',
+          'Todos os valores monetários (revenue, averageTicketCents, revenueCents, amountCents) estão em centavos BRL (divida por 100 para reais).',
+          'Para gerar gráficos de evolução temporal use series (bucket, label, revenueCents, paidOrders, totalOrders); para distribuição use byMethod, byGateway e topProducts.',
+        ].join(' '),
       }
     }
     if (method === 'tools/list') {

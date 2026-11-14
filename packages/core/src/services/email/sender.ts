@@ -174,6 +174,36 @@ async function getProductEmailConfig(
   return data.email_config as ProductEmailConfig;
 }
 
+interface ResolvedProductEmailSender {
+  fromName: string;
+  fromEmail: string;
+  brandName: string;
+  replyTo: string | undefined;
+  cc: string[] | undefined;
+}
+
+/**
+ * Resolve remetente, marca e cabeçalhos de cópia para e-mails transacionais de produto.
+ */
+function resolveProductEmailSender(
+  config: { from_name?: string; from_email?: string; reply_to?: string; cc?: string },
+  options?: EmailDispatchOptions
+): ResolvedProductEmailSender {
+  const fromName =
+    config.from_name?.trim() || options?.fromName?.trim() || options?.brandName?.trim() || 'Quitou';
+  const fromEmail = config.from_email?.trim() || options?.fromEmail?.trim() || '';
+  const brandName = options?.brandName?.trim() || fromName;
+  const replyTo = config.reply_to;
+  const cc = config.cc
+    ? config.cc
+        .split(',')
+        .map((email) => email.trim())
+        .filter(Boolean)
+    : undefined;
+
+  return { fromName, fromEmail, brandName, replyTo, cc };
+}
+
 /**
  * Envia email de pedido criado (order_created)
  */
@@ -202,18 +232,8 @@ export async function sendOrderCreatedEmail(
     const orderIdShort = data.orderId.substring(0, 8);
     const subject = `${isManualResend ? '[Reenvio] ' : ''}${config.subject} #${orderIdShort}`;
 
-    // Reply-to: usar configuração do produto (sem padrão hardcoded)
-    const replyTo = config.reply_to;
-
-    // CC: parsear string separada por vírgula (undefined se vazio)
-    const cc = config.cc
-      ? config.cc.split(',').map((email) => email.trim()).filter(Boolean)
-      : undefined;
-
+    const sender = resolveProductEmailSender(config, options);
     const addon = data.priceEmailAddon;
-    const resolvedFromName =
-      config.from_name?.trim() || options?.fromName?.trim() || options?.brandName?.trim() || 'Quitou';
-    const resolvedFromEmail = config.from_email?.trim() || options?.fromEmail?.trim() || '';
     const templateData: EmailTemplateData = {
       userName: data.userName,
       productName: data.productName,
@@ -221,7 +241,9 @@ export async function sendOrderCreatedEmail(
       orderId: data.orderId,
       paymentMethod: data.paymentMethod,
       subject,
-      fromName: resolvedFromName,
+      fromName: sender.fromName,
+      brandName: sender.brandName,
+      brandLogoUrl: options?.brandLogoUrl,
       customMessage: mergeOrderCreatedCustomMessage(
         'Seu pedido foi criado com sucesso!',
         config.custom_message,
@@ -239,10 +261,10 @@ export async function sendOrderCreatedEmail(
     return await sendAndLogEmail(supabase, {
       recipient: data.userEmail,
       subject,
-      fromName: resolvedFromName,
-      fromEmail: resolvedFromEmail,
-      replyTo,
-      cc,
+      fromName: sender.fromName,
+      fromEmail: sender.fromEmail,
+      replyTo: sender.replyTo,
+      cc: sender.cc,
       html,
       text,
       orderId: data.orderId,
@@ -292,18 +314,8 @@ export async function sendPaymentConfirmedEmail(
     const orderIdShort = data.orderId.substring(0, 8);
     const subject = `${isManualResend ? '[Reenvio] ' : ''}${config.subject} #${orderIdShort}`;
 
-    // Reply-to: usar configuração do produto (sem padrão hardcoded)
-    const replyTo = config.reply_to;
-
-    // CC: parsear string separada por vírgula (undefined se vazio)
-    const cc = config.cc
-      ? config.cc.split(',').map((email) => email.trim()).filter(Boolean)
-      : undefined;
-
+    const sender = resolveProductEmailSender(config, options);
     const addon = data.priceEmailAddon;
-    const resolvedFromName =
-      config.from_name?.trim() || options?.fromName?.trim() || options?.brandName?.trim() || 'Quitou';
-    const resolvedFromEmail = config.from_email?.trim() || options?.fromEmail?.trim() || '';
     const { nextSteps, includeNextSteps } = mergePaymentConfirmedNextSteps(config, addon);
     const templateData: EmailTemplateData = {
       userName: data.userName,
@@ -313,7 +325,9 @@ export async function sendPaymentConfirmedEmail(
       paymentMethod: data.paymentMethod,
       paymentOptions: data.paymentOptions,
       subject,
-      fromName: resolvedFromName,
+      fromName: sender.fromName,
+      brandName: sender.brandName,
+      brandLogoUrl: options?.brandLogoUrl,
       customMessage: mergePaymentConfirmedCustomMessage(
         'Seu pagamento foi confirmado com sucesso!',
         config.custom_message,
@@ -331,10 +345,10 @@ export async function sendPaymentConfirmedEmail(
     return await sendAndLogEmail(supabase, {
       recipient: data.userEmail,
       subject,
-      fromName: resolvedFromName,
-      fromEmail: resolvedFromEmail,
-      replyTo,
-      cc,
+      fromName: sender.fromName,
+      fromEmail: sender.fromEmail,
+      replyTo: sender.replyTo,
+      cc: sender.cc,
       html,
       text,
       orderId: data.orderId,

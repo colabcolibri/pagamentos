@@ -89,6 +89,19 @@ function pickString(
   return { value: null, source: 'missing' }
 }
 
+/**
+ * Resolve o nome de exibição do remetente priorizando a marca cadastrada no banco
+ * antes do fallback genérico de `.env` (`EMAIL_FROM_NAME`).
+ */
+export function resolveEmailFromName(
+  dbFromName: string | null | undefined,
+  dbBrandName: string | null | undefined,
+  envFromName: string | undefined,
+  fallbackBrandName: string
+): string {
+  return dbFromName?.trim() || dbBrandName?.trim() || envFromName?.trim() || fallbackBrandName
+}
+
 async function fetchInstanceConfig(): Promise<InstanceConfig> {
   let row: InstanceSettingsRow | undefined
   try {
@@ -147,8 +160,12 @@ async function fetchInstanceConfig(): Promise<InstanceConfig> {
   const smtpSecure =
     typeof row?.smtp_secure === 'boolean' ? row.smtp_secure : process.env.SMTP_SECURE === 'true'
 
-  const emailFromName =
-    row?.email_from_name?.trim() || process.env.EMAIL_FROM_NAME?.trim() || brand.name
+  const emailFromName = resolveEmailFromName(
+    row?.email_from_name,
+    row?.brand_name,
+    process.env.EMAIL_FROM_NAME,
+    brand.name
+  )
 
   return {
     brand,
@@ -197,9 +214,20 @@ export function toSmtpOverrides(config: InstanceConfig): SmtpOverrides {
   }
 }
 
+function resolveAbsoluteLogoUrl(logoSrc: string | null | undefined): string | null {
+  if (!logoSrc) return null
+  if (/^https?:\/\//i.test(logoSrc)) return logoSrc
+  const base =
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+    'http://localhost:3000'
+  return `${base.replace(/\/+$/, '')}${logoSrc.startsWith('/') ? '' : '/'}${logoSrc}`
+}
+
 export function toEmailDispatchOptions(config: InstanceConfig): EmailDispatchOptions {
   return {
     brandName: config.brand.name,
+    brandLogoUrl: config.hasCustomLogo ? resolveAbsoluteLogoUrl(config.brand.logoSrc) : null,
     footerText: config.smtp.emailFooterText,
     companyLine: config.brand.companyLine,
     fromEmail: config.smtp.emailFrom || config.smtp.user,
