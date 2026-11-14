@@ -4,6 +4,7 @@ import { useState } from 'react'
 
 import { Minus, Plus, Trash2 } from 'lucide-react'
 
+import { useBrand } from '@/components/brand/brand-provider'
 import { Field, FieldDescription, FieldLabel } from '@/components/layout/ui/admin-field'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -72,18 +73,19 @@ interface EmailConfigEditorProps {
 }
 
 export function EmailConfigEditor({ value, onChange }: EmailConfigEditorProps) {
+  const brand = useBrand()
   const [config, setConfig] = useState<ProductEmailConfig>(
     value || {
       order_created: {
-        from_name: 'Quitou',
-        from_email: 'naoresponda@exemplo.com',
+        from_name: brand.name,
+        from_email: brand.supportEmail || brand.contactEmail || 'naoresponda@exemplo.com',
         subject: 'Pedido criado com sucesso!',
         include_next_steps: false,
         next_steps: [],
       },
       payment_confirmed: {
-        from_name: 'Quitou',
-        from_email: 'naoresponda@exemplo.com',
+        from_name: brand.name,
+        from_email: brand.supportEmail || brand.contactEmail || 'naoresponda@exemplo.com',
         subject: 'Pagamento confirmado!',
         include_next_steps: true,
         next_steps: ['Acesse sua conta', 'Confira o material', 'Entre em contato se tiver dúvidas'],

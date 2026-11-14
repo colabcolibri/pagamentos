@@ -56,8 +56,41 @@ services:
       HOSTNAME: "0.0.0.0"
       NODE_ENV: production
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-quitou}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3004/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     ports:
       - "3004:3004"
+    networks:
+      - quitou
+
+  cleanup:
+    <<: *app
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-quitou}
+    command:
+      [
+        "node",
+        "-e",
+        "const pg=require('pg');const run=async()=>{const c=new pg.Client({connectionString:process.env.DATABASE_URL});await c.connect();try{await c.query('SELECT payments.cleanup_expired_payments()')}finally{await c.end()}};run().catch(console.error);setInterval(()=>run().catch(console.error),5*60*1000);"
+      ]
+    networks:
+      - quitou
+
+  mailpit:
+    image: axllent/mailpit:latest
+    profiles: ["dev"]
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
+      - "1025:1025"
     networks:
       - quitou
 

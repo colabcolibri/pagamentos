@@ -6,7 +6,7 @@ import { BrandProvider } from '@/components/brand/brand-provider'
 import { FaleConoscoFab } from '@/components/fale-conosco/fale-conosco-fab'
 import { Toast } from '@/components/layout/ui/toast'
 import { QueryProvider } from '@/components/providers/query-provider'
-import { loadBrandConfig } from '@/lib/brand/load-brand-config'
+import { loadRuntimeBrandConfig } from '@/lib/platform/instance-config'
 
 import './globals.css'
 
@@ -22,23 +22,23 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 })
 
-export function generateMetadata(): Metadata {
-  const brand = loadBrandConfig()
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await loadRuntimeBrandConfig()
   return {
     title: brand.name,
     description: brand.tagline,
     icons: {
-      icon: '/icon.svg',
+      icon: brand.logoSrc ?? '/icon.svg',
     },
   }
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const brand = loadBrandConfig()
+  const brand = await loadRuntimeBrandConfig()
   return (
     <html lang="pt-BR">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>

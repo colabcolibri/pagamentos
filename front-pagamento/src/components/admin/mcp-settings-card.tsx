@@ -25,28 +25,79 @@ type TokenRow = {
   revoked_at: string | null
 }
 
-const LABELS: Record<(typeof POLICY_KEYS)[number], string> = {
-  identidade: 'Identidade',
-  produto: 'Produtos',
-  ia: 'IA',
-  pedido: 'Pedidos',
-  pagamento: 'Pagamentos',
-  cupom: 'Cupons',
-  assinatura: 'Assinaturas',
-  email: 'E-mails',
-  admin: 'Admins',
-  config: 'Chaves',
-  webhook: 'Webhooks recebidos',
-  auditoria: 'Auditoria',
-  reembolso: 'Reembolso',
-  conexao: 'Conexões',
-  resumo: 'Resumo',
-}
+const POLICY_DETAILS: Record<(typeof POLICY_KEYS)[number], { label: string; description: string }> =
+  {
+    identidade: {
+      label: 'Identidade',
+      description: 'Consulta quem é o administrador autenticado na sessão MCP.',
+    },
+    produto: {
+      label: 'Produtos',
+      description:
+        'Lista, cria, edita ou remove produtos, preços, metas e configurações de entrega.',
+    },
+    ia: {
+      label: 'IA',
+      description:
+        'Gera copy, descrições e sugestões de produto usando as chaves de IA configuradas.',
+    },
+    pedido: {
+      label: 'Pedidos',
+      description:
+        'Consulta pedidos, status, cliente e executa ações administrativas como baixa ou cancelamento.',
+    },
+    pagamento: {
+      label: 'Pagamentos',
+      description: 'Inspeciona cobranças geradas no Asaas e Pagar.me (PIX, boleto, cartão).',
+    },
+    cupom: {
+      label: 'Cupons',
+      description: 'Lista, cria, ativa/desativa ou exclui cupons de desconto.',
+    },
+    assinatura: {
+      label: 'Assinaturas',
+      description: 'Acompanha e gerencia assinaturas recorrentes vinculadas aos pedidos.',
+    },
+    email: {
+      label: 'E-mails',
+      description:
+        'Consulta histórico de disparos (email_logs) e solicita reenvio de e-mails de pedido.',
+    },
+    admin: {
+      label: 'Admins',
+      description: 'Lista, adiciona ou remove usuários com acesso administrativo ao painel.',
+    },
+    config: {
+      label: 'Chaves & Configurações',
+      description: 'Lê status e atualiza chaves de gateways, webhooks e integrações da plataforma.',
+    },
+    webhook: {
+      label: 'Webhooks recebidos',
+      description:
+        'Inspeciona eventos brutos recebidos dos gateways (Asaas / Pagar.me) para diagnóstico.',
+    },
+    auditoria: {
+      label: 'Auditoria',
+      description: 'Consulta a trilha de ações administrativas registradas no banco.',
+    },
+    reembolso: {
+      label: 'Reembolso',
+      description: 'Lê modelos de política de reembolso configurados para os produtos.',
+    },
+    conexao: {
+      label: 'Conexões',
+      description: 'Executa testes de conectividade com Postgres, gateways e webhooks.',
+    },
+    resumo: {
+      label: 'Resumo',
+      description: 'Lê métricas consolidadas do dashboard (receita, pedidos e status geral).',
+    },
+  }
 
-const ACTION_LABELS: { key: keyof Actions; label: string }[] = [
-  { key: 'read', label: 'Ler' },
-  { key: 'upsert', label: 'Gravar' },
-  { key: 'delete', label: 'Apagar' },
+const ACTION_LABELS: { key: keyof Actions; label: string; hint: string }[] = [
+  { key: 'read', label: 'Ler', hint: 'Consultar e listar dados' },
+  { key: 'upsert', label: 'Gravar', hint: 'Criar ou alterar registros' },
+  { key: 'delete', label: 'Apagar', hint: 'Remover registros (use com cautela)' },
 ]
 
 export function McpSettingsCard() {
@@ -100,10 +151,10 @@ export function McpSettingsCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>MCP do admin</CardTitle>
+        <CardTitle>MCP (Model Context Protocol)</CardTitle>
         <CardDescription>
-          O cliente entra com o mesmo código de e-mail. O interruptor mestre começa desligado e
-          apagar também. O token revogado falha na próxima chamada.
+          Permite conectar assistentes de IA externos (como Claude Desktop, Cursor ou ChatGPT) ao
+          seu painel administrativo usando autenticação OAuth com o mesmo código de e-mail do admin.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -111,8 +162,14 @@ export function McpSettingsCard() {
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
           <>
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-sm font-medium">MCP ligado</span>
+            <div className="flex items-start justify-between gap-4 rounded-lg border bg-muted/30 p-3.5">
+              <div className="space-y-0.5">
+                <span className="text-sm font-medium">Interruptor mestre do MCP</span>
+                <p className="text-xs text-muted-foreground">
+                  Quando desligado, todas as ferramentas MCP ficam bloqueadas mesmo que existam
+                  tokens ativos. Por segurança, começa desligado.
+                </p>
+              </div>
               <Switch
                 checked={policy.enabled}
                 disabled={saving}
@@ -120,43 +177,68 @@ export function McpSettingsCard() {
                 aria-label="Ligar o MCP"
               />
             </div>
-            <div className="grid gap-3">
-              {POLICY_KEYS.map((key) => (
-                <div
-                  key={key}
-                  className="flex flex-col gap-2 rounded-lg border border-border/60 p-3 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <span className="text-sm font-medium">{LABELS[key]}</span>
-                  <div className="flex flex-wrap gap-3">
-                    {ACTION_LABELS.map((action) => (
-                      <label key={action.key} className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          className="size-4"
-                          checked={policy.policies[key]?.[action.key] ?? false}
-                          disabled={saving}
-                          onChange={(event) => {
-                            const policies = {
-                              ...policy.policies,
-                              [key]: {
-                                ...policy.policies[key],
-                                [action.key]: event.target.checked,
-                              },
-                            }
-                            void save({ ...policy, policies })
-                          }}
-                        />
-                        {action.label}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              ))}
+
+            <div className="space-y-2">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm font-medium">Permissões por módulo</p>
+                <p className="text-xs text-muted-foreground">
+                  Ler = consultar · Gravar = criar/editar · Apagar = excluir
+                </p>
+              </div>
+              <div className="grid gap-2.5">
+                {POLICY_KEYS.map((key) => {
+                  const detail = POLICY_DETAILS[key]
+                  return (
+                    <div
+                      key={key}
+                      className="flex flex-col gap-2 rounded-lg border border-border/60 p-3 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="space-y-0.5">
+                        <div className="text-sm font-medium">{detail.label}</div>
+                        <p className="text-xs text-muted-foreground">{detail.description}</p>
+                      </div>
+                      <div className="flex shrink-0 flex-wrap gap-3">
+                        {ACTION_LABELS.map((action) => (
+                          <label
+                            key={action.key}
+                            title={action.hint}
+                            className="flex items-center gap-2 text-sm"
+                          >
+                            <input
+                              type="checkbox"
+                              className="size-4"
+                              checked={policy.policies[key]?.[action.key] ?? false}
+                              disabled={saving}
+                              onChange={(event) => {
+                                const policies = {
+                                  ...policy.policies,
+                                  [key]: {
+                                    ...policy.policies[key],
+                                    [action.key]: event.target.checked,
+                                  },
+                                }
+                                void save({ ...policy, policies })
+                              }}
+                            />
+                            {action.label}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           </>
         )}
-        <div className="space-y-2">
-          <p className="text-sm font-medium">Tokens deste admin</p>
+        <div className="space-y-2 border-t pt-4">
+          <div className="space-y-0.5">
+            <p className="text-sm font-medium">Tokens OAuth emitidos para este admin</p>
+            <p className="text-xs text-muted-foreground">
+              Cada cliente MCP conectado recebe um token próprio. Ao revogar, o acesso daquele
+              cliente é interrompido imediatamente na próxima chamada.
+            </p>
+          </div>
           {tokens.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum token emitido.</p>
           ) : (

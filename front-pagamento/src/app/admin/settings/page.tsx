@@ -1,11 +1,29 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 
-import { AlertCircle, CheckCircle2, Loader2, Mail, RefreshCw, Webhook, XCircle } from 'lucide-react'
+import { useRouter, useSearchParams } from 'next/navigation'
+
+import {
+  AlertCircle,
+  Bell,
+  Bot,
+  Building2,
+  CheckCircle2,
+  CreditCard,
+  KeyRound,
+  Loader2,
+  Mail,
+  RefreshCw,
+  Webhook,
+  XCircle,
+} from 'lucide-react'
 import { toast } from 'sonner'
 
 import { AdminPageLayout } from '@/components/admin/admin-page-layout'
+import { BrandSettingsCard } from '@/components/admin/brand-settings-card'
+import { DevSeedCard } from '@/components/admin/dev-seed-card'
+import { EmailSmtpSettingsCard } from '@/components/admin/email-smtp-settings-card'
 import { GatewaySettingsCard } from '@/components/admin/gateway-settings-card'
 import { IntegrationKeysCard } from '@/components/admin/integration-keys-card'
 import { McpSettingsCard } from '@/components/admin/mcp-settings-card'
@@ -17,10 +35,11 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { useConnectionTests } from '@/hooks/admin/use-connection-tests'
 import { usePlatformSettings } from '@/hooks/admin/use-platform-settings'
+import { cn } from '@/lib/utils'
 
 const CONTENT = {
   title: 'Configurações',
-  subtitle: 'Preferências da plataforma e teste de integrações',
+  subtitle: 'Preferências da plataforma, marca, e-mails, gateways e integrações',
 
   saleNotify: {
     title: 'Aviso interno de venda',
@@ -54,6 +73,69 @@ const CONTENT = {
     description: 'Não foi possível carregar os testes de conexão.',
   },
 } as const
+
+type SettingsTabId =
+  | 'brand'
+  | 'email'
+  | 'gateways'
+  | 'notifications'
+  | 'integrations'
+  | 'mcp'
+  | 'connections'
+
+const SETTINGS_TABS: {
+  id: SettingsTabId
+  label: string
+  description: string
+  icon: typeof Building2
+}[] = [
+  {
+    id: 'brand',
+    label: 'Identidade & Empresa',
+    description: 'Nome, logo, CNPJ e links',
+    icon: Building2,
+  },
+  {
+    id: 'email',
+    label: 'E-mail & SMTP',
+    description: 'Servidor, remetente e rodapé',
+    icon: Mail,
+  },
+  {
+    id: 'gateways',
+    label: 'Gateways',
+    description: 'Asaas, Pagar.me e webhooks',
+    icon: CreditCard,
+  },
+  {
+    id: 'notifications',
+    label: 'Avisos de venda',
+    description: 'Destinatários internos',
+    icon: Bell,
+  },
+  {
+    id: 'integrations',
+    label: 'Integrações & IA',
+    description: 'Chaves de API externas',
+    icon: KeyRound,
+  },
+  {
+    id: 'mcp',
+    label: 'MCP (Agentes IA)',
+    description: 'Permissões e tokens OAuth',
+    icon: Bot,
+  },
+  {
+    id: 'connections',
+    label: 'Conexões & Saúde',
+    description: 'Diagnóstico de serviços',
+    icon: Webhook,
+  },
+]
+
+function isValidTab(value: string | null): value is SettingsTabId {
+  return SETTINGS_TABS.some((tab) => tab.id === value)
+}
 
 function ConnectionCard({
   name,
@@ -100,7 +182,7 @@ function ConnectionCard({
             <span className="font-medium">{name}</span>
             <Badge variant={config.badge}>{CONTENT.status[status]}</Badge>
           </div>
-          <p className="mt-0.5 text-sm text-muted-foreground truncate" title={message}>
+          <p className="mt-0.5 truncate text-sm text-muted-foreground" title={message}>
             {message}
           </p>
         </div>
@@ -109,7 +191,25 @@ function ConnectionCard({
   )
 }
 
-export default function AdminSettingsPage() {
+function AdminSettingsContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const tabParam = searchParams.get('tab')
+  const [activeTab, setActiveTab] = useState<SettingsTabId>(
+    isValidTab(tabParam) ? tabParam : 'brand'
+  )
+
+  useEffect(() => {
+    if (isValidTab(tabParam)) {
+      setActiveTab(tabParam)
+    }
+  }, [tabParam])
+
+  function selectTab(tab: SettingsTabId) {
+    setActiveTab(tab)
+    router.replace(`/admin/settings?tab=${tab}`, { scroll: false })
+  }
+
   const { connections, isLoading, error, testConnections, isTesting, testError } =
     useConnectionTests()
 
@@ -118,158 +218,212 @@ export default function AdminSettingsPage() {
   const [recipientsDraft, setRecipientsDraft] = useState('')
 
   useEffect(() => {
-    if (settings?.sale_notification_recipients != null) {
-      setRecipientsDraft(settings.sale_notification_recipients)
-    } else {
-      setRecipientsDraft('')
+    if (settings) {
+      setRecipientsDraft(settings.sale_notification_recipients ?? '')
     }
-  }, [settings?.sale_notification_recipients])
+  }, [settings])
 
-  const handleSaveSaleNotify = async () => {
+  async function handleSaveSaleNotify() {
     try {
-      const trimmed = recipientsDraft.trim()
-      await save({
-        sale_notification_recipients: trimmed === '' ? null : trimmed,
-      })
+      await save({ sale_notification_recipients: recipientsDraft.trim() || null })
       toast.success(CONTENT.saleNotify.saved)
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erro ao salvar')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar')
     }
   }
 
   return (
     <AdminPageLayout title={CONTENT.title} subtitle={CONTENT.subtitle}>
-      <div className="space-y-6">
-        <Card className="overflow-hidden">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <Mail className="h-5 w-5 shrink-0" />
-              {CONTENT.saleNotify.title}
-            </CardTitle>
-            <CardDescription className="max-w-2xl">
-              {CONTENT.saleNotify.description}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {platformLoading ? (
-              <Skeleton className="h-24 w-full rounded-md" />
-            ) : (
-              <>
-                <Textarea
-                  value={recipientsDraft}
-                  onChange={(e) => setRecipientsDraft(e.target.value)}
-                  placeholder={CONTENT.saleNotify.placeholder}
-                  className="min-h-[100px] max-w-full resize-y break-all"
-                  disabled={isSaving}
-                  aria-label="E-mails para aviso de venda"
-                />
-                {saveError && (
-                  <p className="text-sm text-destructive break-words">
-                    {saveError instanceof Error ? saveError.message : String(saveError)}
-                  </p>
+      <div className="grid gap-6 md:grid-cols-[240px_minmax(0,1fr)] md:items-start">
+        <nav
+          aria-label="Seções de configurações"
+          className="flex gap-1.5 overflow-x-auto pb-1 md:sticky md:top-6 md:flex-col md:overflow-visible md:pb-0"
+        >
+          {SETTINGS_TABS.map((tab) => {
+            const Icon = tab.icon
+            const active = activeTab === tab.id
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => selectTab(tab.id)}
+                className={cn(
+                  'flex shrink-0 items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors',
+                  active
+                    ? 'border-primary/40 bg-primary/10 text-foreground'
+                    : 'border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground'
                 )}
-                <Button
-                  type="button"
-                  onClick={() => void handleSaveSaleNotify()}
-                  disabled={isSaving}
-                  className="w-full sm:w-auto"
-                >
-                  {isSaving ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      {CONTENT.saleNotify.saving}
-                    </>
-                  ) : (
-                    CONTENT.saleNotify.save
-                  )}
-                </Button>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        <GatewaySettingsCard />
-        <IntegrationKeysCard />
-        <McpSettingsCard />
-
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Webhook className="h-5 w-5" />
-                  {CONTENT.connections.title}
-                </CardTitle>
-                <CardDescription className="mt-1.5 max-w-2xl">
-                  {CONTENT.connections.description}
-                </CardDescription>
-              </div>
-              <Button
-                onClick={() => testConnections()}
-                disabled={isTesting || isLoading}
-                className="shrink-0"
               >
-                {isTesting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {CONTENT.connections.testing}
-                  </>
+                <Icon
+                  className={cn(
+                    'mt-0.5 h-4 w-4 shrink-0',
+                    active ? 'text-primary' : 'text-muted-foreground'
+                  )}
+                />
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium leading-tight">{tab.label}</span>
+                  <span className="hidden text-xs text-muted-foreground md:block">
+                    {tab.description}
+                  </span>
+                </span>
+              </button>
+            )
+          })}
+        </nav>
+
+        <div className="min-w-0 space-y-6">
+          {activeTab === 'brand' && <BrandSettingsCard />}
+
+          {activeTab === 'email' && <EmailSmtpSettingsCard />}
+
+          {activeTab === 'gateways' && <GatewaySettingsCard />}
+
+          {activeTab === 'notifications' && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Bell className="h-5 w-5 text-muted-foreground" />
+                  {CONTENT.saleNotify.title}
+                </CardTitle>
+                <CardDescription className="max-w-2xl">
+                  {CONTENT.saleNotify.description}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {platformLoading ? (
+                  <Skeleton className="h-24 w-full rounded-md" />
                 ) : (
                   <>
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    {CONTENT.connections.test}
+                    <Textarea
+                      value={recipientsDraft}
+                      onChange={(e) => setRecipientsDraft(e.target.value)}
+                      placeholder={CONTENT.saleNotify.placeholder}
+                      className="min-h-[100px] max-w-full resize-y break-all"
+                      disabled={isSaving}
+                      aria-label="E-mails para aviso de venda"
+                    />
+                    {saveError && (
+                      <p className="text-sm text-destructive break-words">
+                        {saveError instanceof Error ? saveError.message : String(saveError)}
+                      </p>
+                    )}
+                    <Button
+                      type="button"
+                      onClick={() => void handleSaveSaleNotify()}
+                      disabled={isSaving}
+                      className="w-full sm:w-auto"
+                    >
+                      {isSaving ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          {CONTENT.saleNotify.saving}
+                        </>
+                      ) : (
+                        CONTENT.saleNotify.save
+                      )}
+                    </Button>
                   </>
                 )}
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {error && (
-              <Alert variant="destructive" className="mb-4">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>{CONTENT.error.title}</AlertTitle>
-                <AlertDescription>
-                  {error instanceof Error ? error.message : String(error)}
-                </AlertDescription>
-              </Alert>
-            )}
+              </CardContent>
+            </Card>
+          )}
 
-            {testError && (
-              <Alert variant="destructive" className="mb-4">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>{CONTENT.error.testTitle}</AlertTitle>
-                <AlertDescription>
-                  {testError instanceof Error ? testError.message : String(testError)}
-                </AlertDescription>
-              </Alert>
-            )}
+          {activeTab === 'integrations' && <IntegrationKeysCard />}
 
-            {isLoading ? (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {[...Array(6)].map((_, i) => (
-                  <Card key={i}>
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-4">
-                        <Skeleton className="h-10 w-10 rounded-lg" />
-                        <div className="flex-1 space-y-2">
-                          <Skeleton className="h-4 w-24" />
-                          <Skeleton className="h-3 w-32" />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : connections.length > 0 ? (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {connections.map((c) => (
-                  <ConnectionCard key={c.id} name={c.name} status={c.status} message={c.message} />
-                ))}
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
+          {activeTab === 'mcp' && <McpSettingsCard />}
+
+          {activeTab === 'connections' && (
+            <Card>
+              <CardHeader>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Webhook className="h-5 w-5 text-muted-foreground" />
+                      {CONTENT.connections.title}
+                    </CardTitle>
+                    <CardDescription className="mt-1.5 max-w-2xl">
+                      {CONTENT.connections.description}
+                    </CardDescription>
+                  </div>
+                  <Button
+                    onClick={() => testConnections()}
+                    disabled={isTesting || isLoading}
+                    className="shrink-0"
+                  >
+                    {isTesting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {CONTENT.connections.testing}
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        {CONTENT.connections.test}
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {error && (
+                  <Alert variant="destructive" className="mb-4">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>{CONTENT.error.title}</AlertTitle>
+                    <AlertDescription>
+                      {error instanceof Error ? error.message : String(error)}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {testError && (
+                  <Alert variant="destructive" className="mb-4">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>{CONTENT.error.testTitle}</AlertTitle>
+                    <AlertDescription>
+                      {testError instanceof Error ? testError.message : String(testError)}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {isLoading ? (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {[1, 2, 3, 4].map((i) => (
+                      <Skeleton key={i} className="h-20 rounded-lg" />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {connections.map((conn) => (
+                      <ConnectionCard
+                        key={conn.id}
+                        name={conn.name}
+                        status={conn.status}
+                        message={conn.message}
+                      />
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {activeTab === 'connections' && <DevSeedCard />}
+        </div>
       </div>
     </AdminPageLayout>
+  )
+}
+
+export default function AdminSettingsPage() {
+  return (
+    <Suspense
+      fallback={
+        <AdminPageLayout title={CONTENT.title} subtitle={CONTENT.subtitle}>
+          <Skeleton className="h-96 w-full rounded-lg" />
+        </AdminPageLayout>
+      }
+    >
+      <AdminSettingsContent />
+    </Suspense>
   )
 }

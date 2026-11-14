@@ -13,12 +13,14 @@ import {
 import { generateEmailHtml, generateEmailText, generatePlatformSaleHtml } from './templates';
 import { createEmailTransporter } from './transport';
 import type {
+  EmailDispatchOptions,
   EmailSendResult,
   EmailTemplateData,
   OrderCreatedEmailData,
   PaymentConfirmedEmailData,
   PlatformSaleNotificationData,
   ProductEmailConfig,
+  SmtpOverrides,
 } from './types';
 
 /**
@@ -38,6 +40,7 @@ async function sendAndLogEmail(
     orderId?: string;
     webhookEventId?: string;
     metadata?: any;
+    smtp?: SmtpOverrides;
   }
 ): Promise<EmailSendResult> {
   let logId: string | null = null;
@@ -98,7 +101,7 @@ async function sendAndLogEmail(
     }
 
     // 2. Enviar email via Nodemailer
-    const transporter = createEmailTransporter();
+    const transporter = createEmailTransporter(emailData.smtp);
     const info = await transporter.sendMail({
       from: `"${emailData.fromName}" <${emailData.fromEmail}>`,
       to: emailData.recipient,
@@ -179,7 +182,8 @@ export async function sendOrderCreatedEmail(
   productId: string,
   data: OrderCreatedEmailData,
   webhookEventId?: string,
-  isManualResend?: boolean
+  isManualResend?: boolean,
+  options?: EmailDispatchOptions
 ): Promise<EmailSendResult> {
   try {
     const emailConfig = await getProductEmailConfig(supabase, productId);
@@ -207,6 +211,9 @@ export async function sendOrderCreatedEmail(
       : undefined;
 
     const addon = data.priceEmailAddon;
+    const resolvedFromName =
+      config.from_name?.trim() || options?.fromName?.trim() || options?.brandName?.trim() || 'Quitou';
+    const resolvedFromEmail = config.from_email?.trim() || options?.fromEmail?.trim() || '';
     const templateData: EmailTemplateData = {
       userName: data.userName,
       productName: data.productName,
@@ -214,7 +221,7 @@ export async function sendOrderCreatedEmail(
       orderId: data.orderId,
       paymentMethod: data.paymentMethod,
       subject,
-      fromName: config.from_name,
+      fromName: resolvedFromName,
       customMessage: mergeOrderCreatedCustomMessage(
         'Seu pedido foi criado com sucesso!',
         config.custom_message,
@@ -222,6 +229,8 @@ export async function sendOrderCreatedEmail(
       ),
       instructions: mergeOrderCreatedInstructions(config.instructions, addon),
       paymentInfo: data.paymentInfo,
+      footerText: data.footerText ?? options?.footerText,
+      companyLine: data.companyLine ?? options?.companyLine,
     };
 
     const html = generateEmailHtml(templateData);
@@ -230,14 +239,15 @@ export async function sendOrderCreatedEmail(
     return await sendAndLogEmail(supabase, {
       recipient: data.userEmail,
       subject,
-      fromName: config.from_name,
-      fromEmail: config.from_email,
+      fromName: resolvedFromName,
+      fromEmail: resolvedFromEmail,
       replyTo,
       cc,
       html,
       text,
       orderId: data.orderId,
       webhookEventId,
+      smtp: options?.smtp,
       metadata: {
         type: 'order_created',
         productId,
@@ -262,7 +272,8 @@ export async function sendPaymentConfirmedEmail(
   productId: string,
   data: PaymentConfirmedEmailData,
   webhookEventId?: string,
-  isManualResend?: boolean
+  isManualResend?: boolean,
+  options?: EmailDispatchOptions
 ): Promise<EmailSendResult> {
   try {
     const emailConfig = await getProductEmailConfig(supabase, productId);
@@ -290,6 +301,9 @@ export async function sendPaymentConfirmedEmail(
       : undefined;
 
     const addon = data.priceEmailAddon;
+    const resolvedFromName =
+      config.from_name?.trim() || options?.fromName?.trim() || options?.brandName?.trim() || 'Quitou';
+    const resolvedFromEmail = config.from_email?.trim() || options?.fromEmail?.trim() || '';
     const { nextSteps, includeNextSteps } = mergePaymentConfirmedNextSteps(config, addon);
     const templateData: EmailTemplateData = {
       userName: data.userName,
@@ -299,7 +313,7 @@ export async function sendPaymentConfirmedEmail(
       paymentMethod: data.paymentMethod,
       paymentOptions: data.paymentOptions,
       subject,
-      fromName: config.from_name,
+      fromName: resolvedFromName,
       customMessage: mergePaymentConfirmedCustomMessage(
         'Seu pagamento foi confirmado com sucesso!',
         config.custom_message,
@@ -307,6 +321,8 @@ export async function sendPaymentConfirmedEmail(
       ),
       nextSteps,
       includeNextSteps,
+      footerText: data.footerText ?? options?.footerText,
+      companyLine: data.companyLine ?? options?.companyLine,
     };
 
     const html = generateEmailHtml(templateData);
@@ -315,14 +331,15 @@ export async function sendPaymentConfirmedEmail(
     return await sendAndLogEmail(supabase, {
       recipient: data.userEmail,
       subject,
-      fromName: config.from_name,
-      fromEmail: config.from_email,
+      fromName: resolvedFromName,
+      fromEmail: resolvedFromEmail,
       replyTo,
       cc,
       html,
       text,
       orderId: data.orderId,
       webhookEventId,
+      smtp: options?.smtp,
       metadata: {
         type: 'payment_confirmed',
         productId,
@@ -352,7 +369,10 @@ function parseRecipientList(raw: string | null | undefined): string[] {
  * Em dev o SMTP é Inbucket/Mailpit (sem auth); o cliente já aceita envio como os outros e-mails.
  * Em produção exige EMAIL_FROM ou SMTP_USER. EMAIL_FROM vem primeiro: no Resend o usuário SMTP é "resend".
  */
-function getPlatformNotificationFrom(): { fromName: string; fromEmail: string } | null {
+function getPlatformNotificationFrom(options?: EmailDispatchOptions): {
+  fromName: string;
+  fromEmail: string;
+} | null {
   if (typeof process === 'undefined' || !process.env) {
     return null;
   }
@@ -360,6 +380,8 @@ function getPlatformNotificationFrom(): { fromName: string; fromEmail: string } 
   const isDev = process.env.NODE_ENV !== 'production';
 
   const fromEmail =
+    options?.fromEmail?.trim() ||
+    options?.smtp?.user?.trim() ||
     process.env.EMAIL_FROM?.trim() ||
     process.env.SMTP_USER?.trim() ||
     (isDev ? 'noreply@quitou.local' : '');
@@ -369,7 +391,12 @@ function getPlatformNotificationFrom(): { fromName: string; fromEmail: string } 
   }
 
   const fromName =
-    process.env.EMAIL_FROM_NAME?.trim() || process.env.SMTP_FROM_NAME?.trim() || 'Quitou';
+    options?.fromName?.trim() ||
+    options?.brandName?.trim() ||
+    process.env.EMAIL_FROM_NAME?.trim() ||
+    process.env.SMTP_FROM_NAME?.trim() ||
+    process.env.BRAND_NAME?.trim() ||
+    'Quitou';
 
   return { fromName, fromEmail };
 }
@@ -396,7 +423,8 @@ async function getPlatformSaleRecipients(supabase: SupabaseClient): Promise<stri
 export async function sendPlatformSaleNotificationEmail(
   supabase: SupabaseClient<any, any, any>,
   data: PlatformSaleNotificationData,
-  webhookEventId?: string
+  webhookEventId?: string,
+  options?: EmailDispatchOptions
 ): Promise<EmailSendResult> {
   try {
     const recipients = await getPlatformSaleRecipients(supabase);
@@ -417,7 +445,7 @@ export async function sendPlatformSaleNotificationEmail(
       return { success: true, messageId: 'already_sent' };
     }
 
-    const from = getPlatformNotificationFrom();
+    const from = getPlatformNotificationFrom(options);
     if (!from) {
       console.warn(
         '⚠️ Remetente não configurado (defina SMTP_USER ou EMAIL_FROM); aviso interno de venda não enviado'
@@ -431,7 +459,12 @@ export async function sendPlatformSaleNotificationEmail(
     const orderShort = data.orderId.substring(0, 8);
     const subject = `[Venda] Pagamento confirmado #${orderShort} — ${data.productName.slice(0, 80)}`;
 
-    const html = generatePlatformSaleHtml(data);
+    const html = generatePlatformSaleHtml({
+      ...data,
+      brandName: data.brandName ?? options?.brandName ?? from.fromName,
+      footerText: data.footerText ?? options?.footerText,
+      companyLine: data.companyLine ?? options?.companyLine,
+    });
 
     const text = [
       'Pagamento confirmado',
@@ -453,6 +486,7 @@ export async function sendPlatformSaleNotificationEmail(
       text,
       orderId: data.orderId,
       webhookEventId,
+      smtp: options?.smtp,
       metadata: {
         type: 'platform_sale_notification',
         recipients,

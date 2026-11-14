@@ -1,8 +1,8 @@
 import 'server-only'
 import { z } from 'zod'
 
-import { loadBrandConfig } from '@/lib/brand/load-brand-config'
 import { REFUND_TEMPLATES, presentRefundTemplate } from '@/lib/payments/refund-templates'
+import { loadRuntimeBrandConfig } from '@/lib/platform/instance-config'
 
 import type { McpTool } from '../../core/types'
 import { defineTool } from '../shared'
@@ -29,7 +29,7 @@ export const REFUND_TOOLS: McpTool[] = [
     handler: async (args) => {
       const template = REFUND_TEMPLATES.find((item) => item.id === args.id)
       if (!template) return null
-      return presentRefundTemplate(template, loadBrandConfig().supportEmail)
+      return presentRefundTemplate(template, (await loadRuntimeBrandConfig()).supportEmail)
     },
   }),
   defineTool({

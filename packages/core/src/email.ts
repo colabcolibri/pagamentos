@@ -13,6 +13,8 @@ import 'server-only';
 
 // Re-export all email service functions and types
 export {
+    buildEmailFooterHtml,
+    buildEmailFooterText,
     createEmailTransporter,
     emailBrand,
     escapeEmailHtml,
@@ -21,16 +23,19 @@ export {
     renderEmailDocument,
     sendOrderCreatedEmail,
     sendPaymentConfirmedEmail,
-    sendPlatformSaleNotificationEmail
+    sendPlatformSaleNotificationEmail,
+    verifySmtpConnection
 } from './services/email';
 
 export type {
+    EmailDispatchOptions,
     EmailSendResult,
     EmailTemplateData,
     OrderCreatedEmailData,
     PaymentConfirmedEmailData,
     PlatformSaleNotificationData,
     PriceEmailAddon,
-    ProductEmailConfig
+    ProductEmailConfig,
+    SmtpOverrides
 } from './services/email';
 

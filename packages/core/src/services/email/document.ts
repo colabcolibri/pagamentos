@@ -18,13 +18,48 @@ export function escapeEmailHtml(value: string | undefined): string {
     .replace(/"/g, '&quot;')
 }
 
+export function buildEmailFooterHtml(input?: {
+  footerText?: string | null
+  companyLine?: string | null
+}): string {
+  const line1 = input?.footerText?.trim() || AUTOMATIC_FOOTER
+  const line2 = input?.companyLine?.trim() || null
+  const lines = [
+    `<p style="margin:0;font-size:12px;line-height:1.5;color:${emailBrand.muted};text-align:center;">${escapeEmailHtml(line1)}</p>`,
+  ]
+  if (line2) {
+    lines.push(
+      `<p style="margin:6px 0 0;font-size:11px;line-height:1.4;color:${emailBrand.muted};text-align:center;">${escapeEmailHtml(line2)}</p>`
+    )
+  }
+  return lines.join('\n')
+}
+
+export function buildEmailFooterText(input?: {
+  footerText?: string | null
+  companyLine?: string | null
+}): string {
+  const parts = [input?.footerText?.trim() || AUTOMATIC_FOOTER]
+  if (input?.companyLine?.trim()) {
+    parts.push(input.companyLine.trim())
+  }
+  return parts.join('\n')
+}
+
 export function renderEmailDocument(input: {
   title: string
   brandName: string
   body: string
   footer?: string
+  footerText?: string | null
+  companyLine?: string | null
 }): string {
-  const footer = input.footer ?? `<p style="margin:0;font-size:12px;line-height:1.5;color:${emailBrand.muted};text-align:center;">${escapeEmailHtml(AUTOMATIC_FOOTER)}</p>`
+  const footer =
+    input.footer ??
+    buildEmailFooterHtml({
+      footerText: input.footerText,
+      companyLine: input.companyLine,
+    })
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">

@@ -24,6 +24,27 @@ export type PlatformSettingsDto = {
   gemini_api_key: SecretStatus
   deepinfra_api_key: SecretStatus
   products_by_price_api_key: SecretStatus
+  brand_name: string
+  brand_tagline: string
+  brand_copyright_name: string
+  brand_legal_name: string | null
+  brand_cnpj: string | null
+  brand_support_email: string | null
+  brand_contact_email: string | null
+  brand_privacy_url: string | null
+  brand_terms_url: string | null
+  has_custom_logo: boolean
+  logo_src: string | null
+  email_footer_text: string | null
+  smtp_host: string | null
+  smtp_host_source: SecretStatus['source']
+  smtp_port: number
+  smtp_secure: boolean
+  smtp_user: string | null
+  smtp_pass: SecretStatus
+  email_from: string | null
+  email_from_source: SecretStatus['source']
+  email_from_name: string
 }
 
 export type PlatformSettingsPatch = {
@@ -40,6 +61,26 @@ export type PlatformSettingsPatch = {
   gemini_api_key?: string
   deepinfra_api_key?: string
   products_by_price_api_key?: string
+  brand_name?: string | null
+  brand_tagline?: string | null
+  brand_copyright_name?: string | null
+  brand_legal_name?: string | null
+  brand_cnpj?: string | null
+  brand_support_email?: string | null
+  brand_contact_email?: string | null
+  brand_privacy_url?: string | null
+  brand_terms_url?: string | null
+  brand_logo_mime?: string
+  brand_logo_base64?: string
+  brand_logo_clear?: boolean
+  email_footer_text?: string | null
+  smtp_host?: string | null
+  smtp_port?: number | null
+  smtp_secure?: boolean | null
+  smtp_user?: string | null
+  smtp_pass?: string
+  email_from?: string | null
+  email_from_name?: string | null
 }
 
 async function fetchPlatformSettings(): Promise<PlatformSettingsDto> {
@@ -77,6 +118,7 @@ export function usePlatformSettings() {
     mutationFn: patchPlatformSettings,
     onSuccess: (dto) => {
       queryClient.setQueryData(['admin', 'platform-settings'], dto)
+      queryClient.invalidateQueries({ queryKey: ['admin', 'setup-status'] })
     },
   })
 

@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
 
 import { requireAdmin } from '@/lib/auth'
-import { loadBrandConfig } from '@/lib/brand/load-brand-config'
 import { createApiHandler } from '@/lib/errors'
 import { apiErrorResponse } from '@/lib/errors/error-handler'
 import { REFUND_TEMPLATES, presentRefundTemplate } from '@/lib/payments/refund-templates'
+import { loadRuntimeBrandConfig } from '@/lib/platform/instance-config'
 
 /**
  * GET /api/admin/refund-policy-templates
@@ -36,7 +36,7 @@ export const GET = createApiHandler(
         id: template.id,
         name: template.name,
         description: template.description,
-        data: presentRefundTemplate(template, loadBrandConfig().supportEmail).data,
+        data: presentRefundTemplate(template, (await loadRuntimeBrandConfig()).supportEmail).data,
       })
     }
 

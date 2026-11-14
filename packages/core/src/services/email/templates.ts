@@ -2,7 +2,12 @@
 // EMAIL TEMPLATES - HTML and Text Generation
 // ==========================================
 
-import { emailBrand as BRAND, escapeEmailHtml as esc, renderEmailDocument } from './document'
+import {
+  buildEmailFooterText,
+  emailBrand as BRAND,
+  escapeEmailHtml as esc,
+  renderEmailDocument,
+} from './document'
 import type { EmailTemplateData, PlatformSaleNotificationData } from './types'
 
 /**
@@ -135,7 +140,13 @@ export function generateEmailHtml(data: EmailTemplateData): string {
     ${generateNextStepsSection(data)}
     <p style="margin:24px 0 0;font-size:16px;line-height:1.6;">Obrigado pela confiança!<br><strong>${esc(data.fromName)}</strong></p>
   `
-  return renderEmailDocument({ title: data.subject, brandName: data.fromName, body: content })
+  return renderEmailDocument({
+    title: data.subject,
+    brandName: data.fromName,
+    body: content,
+    footerText: data.footerText,
+    companyLine: data.companyLine,
+  })
 }
 
 export function generatePlatformSaleHtml(data: PlatformSaleNotificationData): string {
@@ -149,8 +160,10 @@ export function generatePlatformSaleHtml(data: PlatformSaleNotificationData): st
   `
   return renderEmailDocument({
     title: 'Pagamento confirmado',
-    brandName: 'Quitou',
+    brandName: data.brandName?.trim() || 'Quitou',
     body: content,
+    footerText: data.footerText,
+    companyLine: data.companyLine,
   })
 }
 
@@ -209,7 +222,10 @@ export function generateEmailText(data: EmailTemplateData): string {
   text += `Obrigado pela confiança!\n\n`;
   text += `Até breve,\n${data.fromName}\n\n`;
   text += `--\n`;
-  text += `Este é um email automático. Por favor, não responda.`;
+  text += buildEmailFooterText({
+    footerText: data.footerText,
+    companyLine: data.companyLine,
+  });
   
   return text;
 }

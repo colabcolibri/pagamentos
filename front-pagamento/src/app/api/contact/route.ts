@@ -3,15 +3,10 @@ import { NextResponse } from 'next/server'
 import { createEmailTransporter } from '@quitou/core/email'
 import { z } from 'zod'
 
-import { loadBrandConfig } from '@/lib/brand/load-brand-config'
-import { serverEnv } from '@/lib/config/env'
 import { renderFaleConoscoEmail } from '@/lib/contact-email-template'
 import { formatEmailFrom } from '@/lib/email-helpers'
 import { createApiHandler } from '@/lib/errors'
-
-function getContactFromAddress(): string {
-  return serverEnv.EMAIL_FROM ?? serverEnv.SMTP_USER ?? 'noreply@quitou.local'
-}
+import { loadInstanceConfig, toSmtpOverrides } from '@/lib/platform/instance-config'
 
 const contactSchema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
@@ -34,7 +29,8 @@ export const POST = createApiHandler(
       return NextResponse.json({ error: message }, { status: 400 })
     }
 
-    const brand = loadBrandConfig()
+    const instance = await loadInstanceConfig()
+    const { brand, smtp } = instance
     if (!brand.contactEmail) {
       return NextResponse.json({ error: 'E-mail de contato não configurado.' }, { status: 422 })
     }
@@ -42,7 +38,7 @@ export const POST = createApiHandler(
     const { name, email, message } = parsed.data
     const safeSubjectName = name.replace(/[\r\n]+/g, ' ').trim()
 
-    const transporter = createEmailTransporter()
+    const transporter = createEmailTransporter(toSmtpOverrides(instance))
     const { html, text } = renderFaleConoscoEmail({
       name,
       email,
@@ -51,8 +47,9 @@ export const POST = createApiHandler(
       companyLine: brand.companyLine,
     })
 
+    const fromAddress = smtp.emailFrom ?? smtp.user ?? 'noreply@quitou.local'
     await transporter.sendMail({
-      from: formatEmailFrom(getContactFromAddress(), serverEnv.EMAIL_FROM_NAME),
+      from: formatEmailFrom(fromAddress, smtp.emailFromName),
       to: brand.contactEmail,
       replyTo: email,
       subject: `[Fale conosco] Mensagem de ${safeSubjectName}`,

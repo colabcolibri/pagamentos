@@ -42,6 +42,23 @@ export interface PriceEmailAddon {
   };
 }
 
+export interface SmtpOverrides {
+  host?: string | null;
+  port?: number | null;
+  secure?: boolean | null;
+  user?: string | null;
+  pass?: string | null;
+}
+
+export interface EmailDispatchOptions {
+  brandName?: string | null;
+  footerText?: string | null;
+  companyLine?: string | null;
+  fromEmail?: string | null;
+  fromName?: string | null;
+  smtp?: SmtpOverrides;
+}
+
 /**
  * Dados para envio de email de pedido criado
  */
@@ -56,6 +73,8 @@ export interface OrderCreatedEmailData {
   priceEmailAddon?: PriceEmailAddon | null;
   /** Para rastreio em logs de email */
   priceId?: string;
+  footerText?: string | null;
+  companyLine?: string | null;
   paymentInfo?: {
     pixQrCode?: string;
     pixCopyPaste?: string;
@@ -81,6 +100,8 @@ export interface PaymentConfirmedEmailData {
   paymentOptions?: string; // Ex: "12x de R$ 49,90"
   priceEmailAddon?: PriceEmailAddon | null;
   priceId?: string;
+  footerText?: string | null;
+  companyLine?: string | null;
 }
 
 /**
@@ -93,6 +114,9 @@ export interface PlatformSaleNotificationData {
   customerName: string;
   priceDisplay: string;
   paymentMethod: string;
+  brandName?: string | null;
+  footerText?: string | null;
+  companyLine?: string | null;
 }
 
 /**
@@ -120,6 +144,8 @@ export interface EmailTemplateData {
   instructions?: string;
   nextSteps?: string[];
   includeNextSteps?: boolean;
+  footerText?: string | null;
+  companyLine?: string | null;
   paymentInfo?: {
     pixQrCode?: string;
     pixCopyPaste?: string;

@@ -5,8 +5,10 @@
 import type { Transporter } from 'nodemailer';
 import nodemailer from 'nodemailer';
 
+import type { SmtpOverrides } from './types';
+
 /**
- * Configuração do servidor SMTP a partir de variáveis de ambiente
+ * Configuração do servidor SMTP a partir de variáveis de ambiente ou overrides
  */
 export interface SmtpConfig {
   host: string;
@@ -19,14 +21,22 @@ export interface SmtpConfig {
 }
 
 /**
- * Obtém configuração SMTP das variáveis de ambiente
+ * Obtém configuração SMTP das variáveis de ambiente (com overrides opcionais)
  */
-export function getSmtpConfig(): SmtpConfig {
-  const host = process.env.SMTP_HOST;
-  const port = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const secure = process.env.SMTP_SECURE === 'true';
+export function getSmtpConfig(overrides?: SmtpOverrides): SmtpConfig {
+  const host = overrides?.host?.trim() || process.env.SMTP_HOST?.trim();
+  const port =
+    typeof overrides?.port === 'number' && Number.isFinite(overrides.port)
+      ? overrides.port
+      : process.env.SMTP_PORT
+        ? parseInt(process.env.SMTP_PORT, 10)
+        : 587;
+  const user = overrides?.user?.trim() || process.env.SMTP_USER?.trim();
+  const pass = overrides?.pass?.trim() || process.env.SMTP_PASS?.trim();
+  const secure =
+    typeof overrides?.secure === 'boolean'
+      ? overrides.secure
+      : process.env.SMTP_SECURE === 'true';
 
   if (!host || !user || !pass) {
     throw new Error(
@@ -74,22 +84,32 @@ function getInbucketConfig() {
  * - Requer variáveis de ambiente:
  *   - SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_SECURE
  */
-export function createEmailTransporter(): Transporter {
+export function createEmailTransporter(overrides?: SmtpOverrides): Transporter {
   const isDevelopment = process.env.NODE_ENV !== 'production';
-  const devHost = process.env.SMTP_HOST?.trim();
+  const explicitHost = overrides?.host?.trim() || process.env.SMTP_HOST?.trim();
+  const explicitUser = overrides?.user?.trim() || process.env.SMTP_USER?.trim();
+  const explicitPass = overrides?.pass?.trim() || process.env.SMTP_PASS?.trim();
 
-  if (isDevelopment && devHost) {
-    const port = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 1025;
-    const secure = process.env.SMTP_SECURE === 'true';
+  if (isDevelopment && explicitHost && (!explicitUser || !explicitPass)) {
+    const port =
+      typeof overrides?.port === 'number' && Number.isFinite(overrides.port)
+        ? overrides.port
+        : process.env.SMTP_PORT
+          ? parseInt(process.env.SMTP_PORT, 10)
+          : 1025;
+    const secure =
+      typeof overrides?.secure === 'boolean'
+        ? overrides.secure
+        : process.env.SMTP_SECURE === 'true';
     return nodemailer.createTransport({
-      host: devHost,
+      host: explicitHost,
       port,
       secure,
       ignoreTLS: !secure,
     });
   }
 
-  if (isDevelopment) {
+  if (isDevelopment && !explicitHost) {
     const { host, port, webPort } = getInbucketConfig();
     
     console.log('📧 [EMAIL] Modo de desenvolvimento ativado - usando Inbucket (Supabase local)');
@@ -111,7 +131,12 @@ export function createEmailTransporter(): Transporter {
     return devTransporter;
   }
 
-  const config = getSmtpConfig();
+  const config = getSmtpConfig(overrides);
   return nodemailer.createTransport(config);
+}
+
+export async function verifySmtpConnection(overrides?: SmtpOverrides): Promise<void> {
+  const transporter = createEmailTransporter(overrides);
+  await transporter.verify();
 }
 

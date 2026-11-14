@@ -10,6 +10,7 @@ import {
   Home,
   Mail,
   Package,
+  Rocket,
   ScrollText,
   Settings,
   ShoppingCart,
@@ -55,6 +56,7 @@ const CONTENT = {
     audit: 'Trilha',
     emails: 'Emails enviados',
     admins: 'Administradores',
+    setup: 'Setup inicial',
     settings: 'Configurações',
   },
 
@@ -120,6 +122,11 @@ const systemItems = [
     title: CONTENT.items.admins,
     url: '/admin/admins',
     icon: Users,
+  },
+  {
+    title: CONTENT.items.setup,
+    url: '/admin/setup',
+    icon: Rocket,
   },
   {
     title: CONTENT.items.settings,

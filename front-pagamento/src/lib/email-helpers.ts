@@ -14,6 +14,11 @@ import 'server-only'
 import { renderAccessCodeEmail } from '@/lib/access-code-email-template'
 import { serverEnv } from '@/lib/config/env'
 import { getLogger } from '@/lib/logger'
+import {
+  loadInstanceConfig,
+  toEmailDispatchOptions,
+  toSmtpOverrides,
+} from '@/lib/platform/instance-config'
 
 type SupabaseClient<_Database = unknown> = {
   schema: (name: string) => any
@@ -64,13 +69,18 @@ export function formatEmailFrom(address: string, name: string): string {
 }
 
 export async function sendAccessCodeEmail(email: string, code: string): Promise<void> {
-  const from = process.env.EMAIL_FROM || process.env.SMTP_USER
+  const instance = await loadInstanceConfig()
+  const from =
+    instance.smtp.emailFrom || instance.smtp.user || process.env.EMAIL_FROM || process.env.SMTP_USER
   if (!from) {
     throw new Error('Remetente de e-mail não configurado')
   }
-  const fromName = serverEnv.EMAIL_FROM_NAME
-  const message = renderAccessCodeEmail(code, fromName)
-  const transporter = createEmailTransporter()
+  const fromName = instance.smtp.emailFromName || instance.brand.name
+  const message = renderAccessCodeEmail(code, instance.brand.name, {
+    footerText: instance.smtp.emailFooterText,
+    companyLine: instance.brand.companyLine,
+  })
+  const transporter = createEmailTransporter(toSmtpOverrides(instance))
   const subject =
     serverEnv.NODE_ENV === 'production' ? 'Seu código de acesso' : `Seu código de acesso — ${email}`
   await transporter.sendMail({
@@ -185,6 +195,8 @@ export async function sendPaymentConfirmedEmailFromOrder(
       paymentOptions = count > 1 ? `A cada ${count} ${intervalText}s` : `Por ${intervalText}`
     }
 
+    const emailDispatchOptions = toEmailDispatchOptions(await loadInstanceConfig())
+
     // Enviar email
     const emailResult = await sendPaymentConfirmedEmail(
       supabase as any,
@@ -201,7 +213,8 @@ export async function sendPaymentConfirmedEmailFromOrder(
         priceEmailAddon,
       },
       webhookEventId,
-      isManualResend
+      isManualResend,
+      emailDispatchOptions
     )
 
     if (emailResult.success) {
@@ -220,7 +233,8 @@ export async function sendPaymentConfirmedEmailFromOrder(
         priceDisplay,
         paymentMethod: formatPaymentMethod(order.payment_method),
       },
-      webhookEventId
+      webhookEventId,
+      emailDispatchOptions
     )
     const skipNoRemetente =
       typeof platformResult.error === 'string' &&
@@ -312,6 +326,8 @@ export async function sendPlatformSaleNotificationForOrderId(
     )
     if (priceDisplay === null) return
 
+    const emailDispatchOptions = toEmailDispatchOptions(await loadInstanceConfig())
+
     const platformResult = await sendPlatformSaleNotificationEmail(
       supabase as any,
       {
@@ -322,7 +338,8 @@ export async function sendPlatformSaleNotificationForOrderId(
         priceDisplay,
         paymentMethod: formatPaymentMethod(order.payment_method),
       },
-      webhookEventId
+      webhookEventId,
+      emailDispatchOptions
     )
     const skipNoRemetente =
       typeof platformResult.error === 'string' &&
@@ -433,6 +450,8 @@ export async function sendOrderCreatedEmailFromOrder(
     const paymentLinkUrl = metadata.payment_link_url as string | undefined
     const billingType = metadata.billing_type as string | undefined
 
+    const emailDispatchOptions = toEmailDispatchOptions(await loadInstanceConfig())
+
     // Enviar email
     const emailResult = await sendOrderCreatedEmail(
       supabase as any,
@@ -458,7 +477,8 @@ export async function sendOrderCreatedEmailFromOrder(
         },
       },
       webhookEventId,
-      isManualResend
+      isManualResend,
+      emailDispatchOptions
     )
 
     if (emailResult.success) {

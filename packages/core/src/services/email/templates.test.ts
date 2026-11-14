@@ -49,4 +49,23 @@ describe('templates de e-mail', () => {
     expect(html).toContain('Pagamento confirmado')
     expect(html).toContain('ana@quitou.local')
   })
+
+  it('aplica marca, rodapé personalizado e linha da empresa nos templates', () => {
+    const html = generatePlatformSaleHtml({
+      orderId: 'pedido-2',
+      productName: 'Mentoria',
+      customerEmail: 'bia@exemplo.com',
+      customerName: 'Bia',
+      priceDisplay: 'R$ 99,00',
+      paymentMethod: 'Cartão',
+      brandName: 'Acme Pagamentos',
+      footerText: 'Enviado por Acme Pagamentos',
+      companyLine: 'Acme Ltda — CNPJ 00.000.000/0001-00',
+    })
+
+    expect(html).toContain('Acme Pagamentos')
+    expect(html).toContain('Enviado por Acme Pagamentos')
+    expect(html).toContain('Acme Ltda — CNPJ 00.000.000/0001-00')
+    expect(html).not.toContain('Quitou')
+  })
 })

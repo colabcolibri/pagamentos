@@ -150,7 +150,8 @@ describe('sendOrderCreatedEmailFromOrder', () => {
         }),
       }),
       undefined,
-      undefined
+      undefined,
+      expect.objectContaining({ brandName: expect.any(String) })
     )
   })
 
@@ -166,7 +167,8 @@ describe('sendOrderCreatedEmailFromOrder', () => {
         paymentMethod: 'PIX ou cartão',
       }),
       undefined,
-      undefined
+      undefined,
+      expect.objectContaining({ brandName: expect.any(String) })
     )
   })
 
@@ -223,7 +225,8 @@ describe('sendOrderCreatedEmailFromOrder', () => {
         priceDisplay: 'R$ 79,90',
       }),
       undefined,
-      undefined
+      undefined,
+      expect.objectContaining({ brandName: expect.any(String) })
     )
   })
 

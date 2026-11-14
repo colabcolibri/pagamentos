@@ -24,6 +24,8 @@ export function BrandMark({
     )
   }
 
+  const unoptimized = brand.logoSrc.startsWith('/api/') || brand.logoSrc.endsWith('.svg')
+
   return (
     <Image
       src={brand.logoSrc}
@@ -31,6 +33,7 @@ export function BrandMark({
       width={140}
       height={36}
       priority={priority}
+      unoptimized={unoptimized}
       className={cn('mx-auto block', imageClassName, className)}
     />
   )

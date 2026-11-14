@@ -1,8 +1,14 @@
-import { emailBrand, escapeEmailHtml, renderEmailDocument } from '@quitou/core/email-document'
+import {
+  buildEmailFooterText,
+  emailBrand,
+  escapeEmailHtml,
+  renderEmailDocument,
+} from '@quitou/core/email-document'
 
 export function renderAccessCodeEmail(
   code: string,
-  brandName: string
+  brandName: string,
+  footer?: { footerText?: string | null; companyLine?: string | null }
 ): { html: string; text: string } {
   const digits = escapeEmailHtml(code.replace(/\D/g, '').slice(0, 6))
 
@@ -14,6 +20,9 @@ export function renderAccessCodeEmail(
     <p style="margin:0;font-size:14px;line-height:1.5;color:${emailBrand.muted};">Se você não pediu este acesso, ignore este e-mail.</p>
   `
 
+  const footerTextBlock =
+    footer?.footerText || footer?.companyLine ? ['', '--', buildEmailFooterText(footer)] : []
+
   const text = [
     brandName,
     '',
@@ -23,10 +32,17 @@ export function renderAccessCodeEmail(
     'Digite estes 6 dígitos na tela. Não existe link de acesso.',
     'O código vale por 10 minutos.',
     'Se você não pediu este acesso, ignore este e-mail.',
+    ...footerTextBlock,
   ].join('\n')
 
   return {
-    html: renderEmailDocument({ title: 'Seu código de acesso', brandName, body }),
+    html: renderEmailDocument({
+      title: 'Seu código de acesso',
+      brandName,
+      body,
+      footerText: footer?.footerText,
+      companyLine: footer?.companyLine,
+    }),
     text,
   }
 }

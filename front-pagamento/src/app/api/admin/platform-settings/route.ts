@@ -12,9 +12,14 @@ import {
   platformSettingsPatchSchema,
   updatePlatformSettings,
 } from '@/lib/payments/update-platform-settings'
+import { loadInstanceConfig, toAdminInstanceView } from '@/lib/platform/instance-config'
 
 async function currentView() {
-  return toAdminGatewayView(await loadGatewayConfig())
+  const [gateway, instance] = await Promise.all([loadGatewayConfig(), loadInstanceConfig()])
+  return {
+    ...toAdminGatewayView(gateway),
+    ...toAdminInstanceView(instance),
+  }
 }
 
 export const GET = createApiHandler(
