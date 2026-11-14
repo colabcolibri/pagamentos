@@ -603,7 +603,7 @@ export async function runDevSeed(executedBy?: string | null): Promise<{
 
         await client.query(
           `INSERT INTO payments.subscriptions (id, user_id, price_id, status, current_period_start, current_period_end, cancel_at_period_end, created_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $5)`,
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
           [
             subscriptionId,
             customer.id,
@@ -612,6 +612,7 @@ export async function runDevSeed(executedBy?: string | null): Promise<{
             createdAt,
             periodEnd,
             status === 'cancelled',
+            createdAt,
           ]
         )
         subscriptionsCount += 1
