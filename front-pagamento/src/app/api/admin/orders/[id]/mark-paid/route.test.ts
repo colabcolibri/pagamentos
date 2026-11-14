@@ -15,10 +15,6 @@ vi.mock('@/lib/auth', () => ({
   requireAdmin: vi.fn(),
 }))
 
-vi.mock('@/lib/payments/factories/service-factory', () => ({
-  createServices: vi.fn(),
-}))
-
 vi.mock('@/lib/logger', () => ({
   getLogger: () => ({
     error: vi.fn(),
@@ -47,7 +43,6 @@ vi.mock('@/lib/config/env', () => ({
 
 const { requireAdmin } = await import('@/lib/auth')
 const { createAdminPaymentsClient } = await import('@/lib/db/payments-query')
-const { createServices } = await import('@/lib/payments/factories/service-factory')
 const { sendPaymentConfirmedProductWebhook } = await import('@quitou/core/product-webhook')
 
 function buildRequest() {
@@ -58,7 +53,6 @@ describe('POST /api/admin/orders/[id]/mark-paid', () => {
   beforeEach(() => {
     vi.mocked(requireAdmin).mockReset()
     vi.mocked(createAdminPaymentsClient).mockReset()
-    vi.mocked(createServices).mockReset()
     vi.mocked(sendPaymentConfirmedProductWebhook).mockClear()
   })
 
@@ -178,9 +172,6 @@ describe('POST /api/admin/orders/[id]/mark-paid', () => {
       success: true,
       user: { id: 'admin-1', email: 'a@b.c' },
     })
-    vi.mocked(createServices).mockReturnValue({
-      orderService: { updateOrderStatus },
-    } as any)
 
     const res = await POST(buildRequest(), {
       params: Promise.resolve({ id: orderUuid }),

@@ -12,6 +12,8 @@ import { Button } from '@/components/ui/button'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { useAuthSession } from '@/hooks/use-auth-session'
+import { useProfile } from '@/hooks/use-profile'
 
 const CONTENT = {
   fabLabelMobile: 'Contato',
@@ -34,64 +36,30 @@ export function FaleConoscoFab() {
   const formId = useId()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [identityLocked, setIdentityLocked] = useState(false)
-  const [sessionChecked, setSessionChecked] = useState(false)
   const [errors, setErrors] = useState<{ name?: string; email?: string; message?: string }>({})
   const [formData, setFormData] = useState({ name: '', email: '', message: '' })
+  const { data: session, isFetched: isSessionFetched } = useAuthSession({ enabled: open })
+  const sessionEmail = session?.user?.email ?? ''
+  const { data: profile } = useProfile({ enabled: open && Boolean(sessionEmail) })
+
+  const identityLocked = Boolean(sessionEmail)
+  const sessionChecked = !open || isSessionFetched
 
   const handleClose = () => {
     setOpen(false)
     setErrors({})
-    setIdentityLocked(false)
-    setSessionChecked(false)
     setFormData({ name: '', email: '', message: '' })
   }
 
   useEffect(() => {
-    if (!open) return
-
-    const loadUserData = async () => {
-      setIdentityLocked(false)
-      setSessionChecked(false)
-
-      try {
-        const sessionResponse = await fetch('/api/auth/session', { credentials: 'include' })
-        const session = sessionResponse.ok
-          ? ((await sessionResponse.json()) as {
-              user: { email?: string; name?: string } | null
-            })
-          : { user: null }
-
-        if (session.user?.email) {
-          setIdentityLocked(true)
-          const sessionName = session.user.name ?? ''
-
-          setFormData((prev) => ({
-            ...prev,
-            email: session.user?.email ?? '',
-            name: sessionName || prev.name,
-          }))
-
-          try {
-            const res = await fetch('/api/profile', { credentials: 'include' })
-            if (res.ok) {
-              const data = await res.json()
-              const name = data.profile?.name ?? ''
-              if (name) {
-                setFormData((prev) => ({ ...prev, name }))
-              }
-            }
-          } catch {
-            // Ignora erro na busca do perfil
-          }
-        }
-      } finally {
-        setSessionChecked(true)
-      }
-    }
-
-    loadUserData()
-  }, [open])
+    if (!open || !sessionEmail) return
+    const resolvedName = profile?.profile?.name || session?.user?.name || ''
+    setFormData((prev) => ({
+      ...prev,
+      email: sessionEmail,
+      name: resolvedName || prev.name,
+    }))
+  }, [open, sessionEmail, session?.user?.name, profile?.profile?.name])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

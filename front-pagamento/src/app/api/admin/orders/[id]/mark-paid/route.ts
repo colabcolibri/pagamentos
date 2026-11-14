@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 
+import { recordPricePromoSalesAfterOrderPaid } from '@quitou/core'
 import { sendPaymentConfirmedProductWebhook } from '@quitou/core/product-webhook'
 
 import { recordAdminAction } from '@/lib/admin/audit'
@@ -19,7 +20,13 @@ function isPaidLikeStatus(status: string | null): boolean {
 
 function isUpdatablePaymentStatus(status: string | null): boolean {
   if (!status) return false
-  return status === 'pending' || status === 'failed' || status === 'expired'
+  return (
+    status === 'pending' ||
+    status === 'pix_generated' ||
+    status === 'boleto_generated' ||
+    status === 'failed' ||
+    status === 'expired'
+  )
 }
 
 function createPaymentsSchemaServiceClient() {
@@ -82,30 +89,33 @@ export const POST = createApiHandlerWithParams(
       )
     }
 
-    const { data: pagarmeRows, error: pgErr } = await supabaseAdmin
-      .schema('payments')
-      .from('pagarme_payments')
-      .select('id, status, payment_method')
-      .eq('order_id', id)
+    const [{ data: pagarmeRows, error: pgErr }, { data: asaasRows, error: asaasErr }] =
+      await Promise.all([
+        supabaseAdmin
+          .schema('payments')
+          .from('pagarme_payments')
+          .select('id, status, payment_method')
+          .eq('order_id', id),
+        supabaseAdmin
+          .schema('payments')
+          .from('asaas_payments')
+          .select('id, status, payment_method')
+          .eq('order_id', id),
+      ])
 
     if (pgErr) {
       logger.error('Erro ao listar pagamentos Pagar.me do pedido', { id, error: pgErr })
       return NextResponse.json({ error: 'Erro ao verificar cobranças vinculadas' }, { status: 500 })
     }
 
-    const { data: asaasRows, error: asaasErr } = await supabaseAdmin
-      .schema('payments')
-      .from('asaas_payments')
-      .select('id, status, payment_method')
-      .eq('order_id', id)
-
     if (asaasErr) {
       logger.error('Erro ao listar pagamentos Asaas do pedido', { id, error: asaasErr })
       return NextResponse.json({ error: 'Erro ao verificar cobranças vinculadas' }, { status: 500 })
     }
 
-    const pg = pagarmeRows ?? []
-    const as = asaasRows ?? []
+    type LinkedPaymentRow = { id: string; status: string | null; payment_method?: string | null }
+    const pg: LinkedPaymentRow[] = pagarmeRows ?? []
+    const as: LinkedPaymentRow[] = asaasRows ?? []
 
     if (pg.length === 0 && as.length === 0) {
       return NextResponse.json(
@@ -139,40 +149,57 @@ export const POST = createApiHandlerWithParams(
     const paidAt = new Date().toISOString()
     const orderPaymentMethod = orderRow.payment_method ?? 'unknown'
 
-    for (const row of pg) {
-      if (isPaidLikeStatus(row.status)) continue
-      const { error: upErr } = await supabaseAdmin
-        .schema('payments')
-        .from('pagarme_payments')
-        .update({
-          status: 'paid',
-          paid_at: paidAt,
-          payment_method: row.payment_method ?? orderPaymentMethod,
-        })
-        .eq('id', row.id)
+    const [pgResults, asResults] = await Promise.all([
+      Promise.all(
+        pg
+          .filter((row) => !isPaidLikeStatus(row.status))
+          .map(async (row) => ({
+            id: row.id,
+            ...(await supabaseAdmin
+              .schema('payments')
+              .from('pagarme_payments')
+              .update({
+                status: 'paid',
+                paid_at: paidAt,
+                payment_method: row.payment_method ?? orderPaymentMethod,
+              })
+              .eq('id', row.id)),
+          }))
+      ),
+      Promise.all(
+        as
+          .filter((row) => !isPaidLikeStatus(row.status))
+          .map(async (row) => ({
+            id: row.id,
+            ...(await supabaseAdmin
+              .schema('payments')
+              .from('asaas_payments')
+              .update({
+                status: 'paid',
+                paid_at: paidAt,
+                payment_method: row.payment_method ?? orderPaymentMethod,
+              })
+              .eq('id', row.id)),
+          }))
+      ),
+    ])
 
-      if (upErr) {
-        logger.error('Falha ao atualizar pagarme_payments para paid', { id: row.id, error: upErr })
-        return NextResponse.json({ error: 'Erro ao atualizar cobrança Pagar.me' }, { status: 500 })
-      }
+    const failedPg = pgResults.find((r) => r.error)
+    if (failedPg) {
+      logger.error('Falha ao atualizar pagarme_payments para paid', {
+        id: failedPg.id,
+        error: failedPg.error,
+      })
+      return NextResponse.json({ error: 'Erro ao atualizar cobrança Pagar.me' }, { status: 500 })
     }
 
-    for (const row of as) {
-      if (isPaidLikeStatus(row.status)) continue
-      const { error: upErr } = await supabaseAdmin
-        .schema('payments')
-        .from('asaas_payments')
-        .update({
-          status: 'paid',
-          paid_at: paidAt,
-          payment_method: row.payment_method ?? orderPaymentMethod,
-        })
-        .eq('id', row.id)
-
-      if (upErr) {
-        logger.error('Falha ao atualizar asaas_payments para paid', { id: row.id, error: upErr })
-        return NextResponse.json({ error: 'Erro ao atualizar cobrança Asaas' }, { status: 500 })
-      }
+    const failedAs = asResults.find((r) => r.error)
+    if (failedAs) {
+      logger.error('Falha ao atualizar asaas_payments para paid', {
+        id: failedAs.id,
+        error: failedAs.error,
+      })
+      return NextResponse.json({ error: 'Erro ao atualizar cobrança Asaas' }, { status: 500 })
     }
 
     try {
@@ -221,30 +248,33 @@ export const POST = createApiHandlerWithParams(
       }
     }
 
-    try {
-      await sendPaymentConfirmedProductWebhook(createPaymentsSchemaServiceClient(), id)
-    } catch (whErr) {
-      logger.warn('Pedido marcado como pago, mas falha ao disparar webhook do produto', {
-        orderId: id,
-        error: whErr,
-      })
-    }
-
-    try {
-      await sendPlatformSaleNotificationForOrderId(createPaymentsSchemaServiceClient(), id)
-    } catch (saleNotifyErr) {
-      logger.warn('Pedido marcado como pago, mas falha ao enviar aviso interno de venda', {
-        orderId: id,
-        error: saleNotifyErr,
-      })
-    }
-
-    await recordAdminAction(getPool(), {
-      actorId: authResult.user.id,
-      action: 'order.mark_paid',
-      targetType: 'order',
-      targetId: id,
-    })
+    const serviceClient = createPaymentsSchemaServiceClient()
+    await Promise.all([
+      recordPricePromoSalesAfterOrderPaid(serviceClient, id).catch((promoErr) => {
+        logger.warn('Pedido marcado como pago, mas falha ao atualizar contadores de promo', {
+          orderId: id,
+          error: promoErr,
+        })
+      }),
+      sendPaymentConfirmedProductWebhook(serviceClient, id).catch((whErr) => {
+        logger.warn('Pedido marcado como pago, mas falha ao disparar webhook do produto', {
+          orderId: id,
+          error: whErr,
+        })
+      }),
+      sendPlatformSaleNotificationForOrderId(serviceClient, id).catch((saleNotifyErr) => {
+        logger.warn('Pedido marcado como pago, mas falha ao enviar aviso interno de venda', {
+          orderId: id,
+          error: saleNotifyErr,
+        })
+      }),
+      recordAdminAction(getPool(), {
+        actorId: authResult.user.id,
+        action: 'order.mark_paid',
+        targetType: 'order',
+        targetId: id,
+      }),
+    ])
     return NextResponse.json({ ok: true, status: 'paid' })
   },
   { module: 'admin', action: 'mark_order_paid' }

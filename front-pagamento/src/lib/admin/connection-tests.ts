@@ -6,7 +6,7 @@ import 'server-only'
 
 import { getPool } from '@/lib/db/pool'
 import { getLogger } from '@/lib/logger'
-import { loadGatewayConfig } from '@/lib/payments/gateway-config'
+import { type GatewayConfig, loadGatewayConfig } from '@/lib/payments/gateway-config'
 
 export type ConnectionStatus = 'ok' | 'error' | 'skipped'
 
@@ -62,8 +62,10 @@ export async function testDatabaseConnection(): Promise<ConnectionResult> {
   }
 }
 
-export async function testPagarmeConnection(): Promise<ConnectionResult> {
-  const config = await loadGatewayConfig()
+export async function testPagarmeConnection(
+  preloadedConfig?: GatewayConfig
+): Promise<ConnectionResult> {
+  const config = preloadedConfig ?? (await loadGatewayConfig())
   if (!config.pagarmeEnabled) {
     return {
       id: 'pagarme',
@@ -127,8 +129,10 @@ export async function testPagarmeConnection(): Promise<ConnectionResult> {
   }
 }
 
-export async function testAsaasConnection(): Promise<ConnectionResult> {
-  const config = await loadGatewayConfig()
+export async function testAsaasConnection(
+  preloadedConfig?: GatewayConfig
+): Promise<ConnectionResult> {
+  const config = preloadedConfig ?? (await loadGatewayConfig())
   if (!config.asaasEnabled) {
     return {
       id: 'asaas',
@@ -194,8 +198,10 @@ export async function testAsaasConnection(): Promise<ConnectionResult> {
   }
 }
 
-export async function testGeminiConnection(): Promise<ConnectionResult> {
-  const apiKey = (await loadGatewayConfig()).geminiApiKey
+export async function testGeminiConnection(
+  preloadedConfig?: GatewayConfig
+): Promise<ConnectionResult> {
+  const apiKey = (preloadedConfig ?? (await loadGatewayConfig())).geminiApiKey
   if (!apiKey?.trim()) {
     return {
       id: 'gemini',
@@ -244,8 +250,10 @@ export async function testGeminiConnection(): Promise<ConnectionResult> {
   }
 }
 
-export async function getWebhookConfigStatus(): Promise<ConnectionResult[]> {
-  const config = await loadGatewayConfig()
+export async function getWebhookConfigStatus(
+  preloadedConfig?: GatewayConfig
+): Promise<ConnectionResult[]> {
+  const config = preloadedConfig ?? (await loadGatewayConfig())
   const pagarmeReady = Boolean(config.pagarmeWebhookUser && config.pagarmeWebhookSecret)
   const asaasReady = Boolean(config.asaasWebhookSecret)
 
@@ -270,14 +278,14 @@ export async function getWebhookConfigStatus(): Promise<ConnectionResult[]> {
 }
 
 export async function runAllConnectionTests(): Promise<ConnectionResult[]> {
-  const [database, pagarme, asaas, gemini] = await Promise.all([
+  const config = await loadGatewayConfig()
+  const [database, pagarme, asaas, gemini, webhooks] = await Promise.all([
     testDatabaseConnection(),
-    testPagarmeConnection(),
-    testAsaasConnection(),
-    testGeminiConnection(),
+    testPagarmeConnection(config),
+    testAsaasConnection(config),
+    testGeminiConnection(config),
+    getWebhookConfigStatus(config),
   ])
-
-  const webhooks = await getWebhookConfigStatus()
 
   return [database, pagarme, asaas, gemini, ...webhooks]
 }

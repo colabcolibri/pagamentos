@@ -115,21 +115,23 @@ export async function loadCheckoutAddons(
     })
   }
 
-  const offers = await db.query<{ addon_price_id: string }>(
-    `SELECT addon_price_id
-     FROM payments.price_addon_offers
-     WHERE anchor_price_id::text = $1`,
-    [params.anchorPriceId]
-  )
-  const prices = await db.query(
-    `SELECT pr.id, pr.ref, pr.amount, pr.metadata, pr.recurring, pr.stock_cap, pr.stock_sold,
-            json_build_object('name', p.name) AS products
-     FROM payments.prices pr
-     INNER JOIN payments.products p ON p.id = pr.product_id
-     WHERE pr.active IS TRUE
-       AND pr.id::text = ANY($1::text[])`,
-    [unique]
-  )
+  const [offers, prices] = await Promise.all([
+    db.query<{ addon_price_id: string }>(
+      `SELECT addon_price_id
+       FROM payments.price_addon_offers
+       WHERE anchor_price_id::text = $1`,
+      [params.anchorPriceId]
+    ),
+    db.query(
+      `SELECT pr.id, pr.ref, pr.amount, pr.metadata, pr.recurring, pr.stock_cap, pr.stock_sold,
+              json_build_object('name', p.name) AS products
+       FROM payments.prices pr
+       INNER JOIN payments.products p ON p.id = pr.product_id
+       WHERE pr.active IS TRUE
+         AND pr.id::text = ANY($1::text[])`,
+      [unique]
+    ),
+  ])
   return evaluateLoadedCheckoutAddons({
     mainPriceRecurring: params.mainPriceRecurring,
     requestedAddonPriceIds: params.requestedAddonPriceIds,
@@ -177,42 +179,35 @@ export async function loadCheckoutCoupon(
   )
   const coupon = (found.rows[0] as DiscountCouponRowWithScope | undefined) ?? null
   const redemptions = { total: 0, byUser: 0 }
-  if (coupon?.max_redemptions_total != null) {
-    const total = await db.query<{ total: number }>(
-      `SELECT count(*)::int AS total
-       FROM payments.coupon_redemptions cr
-       LEFT JOIN payments.orders o ON o.id = cr.order_id
-       WHERE cr.coupon_id = $1
-         AND (
-           o.id IS NULL
-           OR (
-             o.deleted_at IS NULL
-             AND o.status NOT IN ('cancelled', 'failed', 'expired')
-             AND (o.expires_at IS NULL OR o.expires_at > now())
-           )
-         )`,
-      [coupon.id]
-    )
-    redemptions.total = total.rows[0]?.total ?? 0
-  }
-  if (coupon?.max_redemptions_per_user != null) {
-    const byUser = await db.query<{ total: number }>(
-      `SELECT count(*)::int AS total
-       FROM payments.coupon_redemptions cr
-       LEFT JOIN payments.orders o ON o.id = cr.order_id
-       WHERE cr.coupon_id = $1
-         AND cr.user_id = $2
-         AND (
-           o.id IS NULL
-           OR (
-             o.deleted_at IS NULL
-             AND o.status NOT IN ('cancelled', 'failed', 'expired')
-             AND (o.expires_at IS NULL OR o.expires_at > now())
-           )
-         )`,
-      [coupon.id, params.userId]
-    )
-    redemptions.byUser = byUser.rows[0]?.total ?? 0
+  if (coupon && (coupon.max_redemptions_total != null || coupon.max_redemptions_per_user != null)) {
+    const redemptionValidity = `
+      LEFT JOIN payments.orders o ON o.id = cr.order_id
+      WHERE cr.coupon_id = $1
+        AND (
+          o.id IS NULL
+          OR (
+            o.deleted_at IS NULL
+            AND o.status NOT IN ('cancelled', 'failed', 'expired')
+            AND (o.expires_at IS NULL OR o.expires_at > now())
+          )
+        )`
+
+    const [totalRes, byUserRes] = await Promise.all([
+      coupon.max_redemptions_total != null
+        ? db.query<{ total: number }>(
+            `SELECT count(*)::int AS total FROM payments.coupon_redemptions cr ${redemptionValidity}`,
+            [coupon.id]
+          )
+        : Promise.resolve(null),
+      coupon.max_redemptions_per_user != null
+        ? db.query<{ total: number }>(
+            `SELECT count(*)::int AS total FROM payments.coupon_redemptions cr ${redemptionValidity} AND cr.user_id = $2`,
+            [coupon.id, params.userId]
+          )
+        : Promise.resolve(null),
+    ])
+    redemptions.total = totalRes?.rows[0]?.total ?? 0
+    redemptions.byUser = byUserRes?.rows[0]?.total ?? 0
   }
   return evaluateLoadedCheckoutCoupon(coupon, redemptions, params)
 }
@@ -325,6 +320,22 @@ export async function touchCheckoutProfile(
   return { profile }
 }
 
+export function buildPendingSubscriptionRow(
+  userId: string,
+  priceId: string,
+  productId: string,
+  productRef: string,
+  subscriptionId: string
+): Record<string, unknown> {
+  return {
+    id: subscriptionId,
+    user_id: userId,
+    price_id: priceId,
+    status: 'incomplete',
+    metadata: { product_id: productId, product_ref: productRef },
+  }
+}
+
 export async function insertPendingSubscription(
   db: SqlClient,
   userId: string,
@@ -334,13 +345,11 @@ export async function insertPendingSubscription(
   subscriptionId: string
 ): Promise<{ subscriptionId: string; error?: Error }> {
   try {
-    await insertRow(db, 'subscriptions', {
-      id: subscriptionId,
-      user_id: userId,
-      price_id: priceId,
-      status: 'incomplete',
-      metadata: { product_id: productId, product_ref: productRef },
-    })
+    await insertRow(
+      db,
+      'subscriptions',
+      buildPendingSubscriptionRow(userId, priceId, productId, productRef, subscriptionId)
+    )
     return { subscriptionId }
   } catch (error) {
     return { subscriptionId: '', error: error instanceof Error ? error : new Error('Erro ao criar assinatura') }
@@ -351,9 +360,13 @@ export async function insertOrderAndPayment(
   db: CheckoutDatabase,
   paymentTable: 'asaas_payments' | 'pagarme_payments',
   order: Record<string, unknown>,
-  payment: Record<string, unknown>
+  payment: Record<string, unknown>,
+  subscription?: Record<string, unknown> | null
 ): Promise<void> {
   await db.transaction(async (client) => {
+    if (subscription) {
+      await insertRow(client, 'subscriptions', subscription)
+    }
     await insertRow(client, 'orders', order)
     await insertRow(client, paymentTable, payment)
   })

@@ -1,6 +1,6 @@
 'use client'
 
-import { ChevronDown, ChevronUp, Copy, Pencil, Trash2 } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, Copy, Pencil, Trash2 } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -8,6 +8,17 @@ import { cn } from '@/lib/utils'
 
 import type { Price } from './types'
 import type { UsePricesEditorReturn } from './use-prices-editor'
+
+const CONTENT = {
+  moveUp: 'Mover para cima',
+  moveDown: 'Mover para baixo',
+  fallbackTitle: (index: number) => `Preço ${index + 1}`,
+  active: 'Ativo',
+  inactive: 'Inativo',
+  edit: 'Editar',
+  copied: 'Link copiado',
+  copyLink: 'Copiar link de checkout',
+} as const
 
 type PriceRowProps = {
   price: Price
@@ -41,9 +52,7 @@ export function PriceRow({
 
   return (
     <div
-      className={cn(
-        'flex items-center gap-3 px-4 py-3 border-b border-border/50 last:border-0 bg-card hover:bg-muted/30 transition-colors min-w-0'
-      )}
+      className={cn('flex items-center gap-3 py-3.5 hover:bg-muted/20 transition-colors min-w-0')}
     >
       {/* Reordenar */}
       <div className="flex flex-col gap-0.5 shrink-0">
@@ -54,7 +63,7 @@ export function PriceRow({
           className="h-5 w-5 p-0"
           onClick={onMoveUp}
           disabled={index === 0}
-          title="Mover para cima"
+          title={CONTENT.moveUp}
         >
           <ChevronUp className="h-3 w-3" />
         </Button>
@@ -65,27 +74,37 @@ export function PriceRow({
           className="h-5 w-5 p-0"
           onClick={onMoveDown}
           disabled={index === pricesCount - 1}
-          title="Mover para baixo"
+          title={CONTENT.moveDown}
         >
           <ChevronDown className="h-3 w-3" />
         </Button>
       </div>
 
       {/* Info principal */}
-      <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="text-sm font-semibold truncate">{title || `Preço ${index + 1}`}</span>
-        {price.ref && (
-          <span className="text-xs text-muted-foreground font-mono truncate">{price.ref}</span>
-        )}
-        <span className="text-sm font-bold text-primary tabular-nums">
-          {formatMoney(price.amount)}
-        </span>
-        <span className="text-xs text-muted-foreground">{formatPriceDescription(price)}</span>
-        {!price.active && (
-          <Badge variant="secondary" className="text-[10px]">
-            Inativo
+      <div className="flex-1 min-w-0 space-y-1">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
+          <span className="text-sm font-semibold truncate">
+            {title || CONTENT.fallbackTitle(index)}
+          </span>
+          {price.ref && (
+            <code className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground font-mono truncate max-w-[16rem]">
+              {price.ref}
+            </code>
+          )}
+          <Badge
+            variant={price.active ? 'default' : 'secondary'}
+            className="text-[10px] h-5 px-1.5"
+          >
+            {price.active ? CONTENT.active : CONTENT.inactive}
           </Badge>
-        )}
+        </div>
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs">
+          <span className="text-sm font-bold text-primary tabular-nums">
+            {formatMoney(price.amount)}
+          </span>
+          <span className="text-muted-foreground">•</span>
+          <span className="text-muted-foreground">{formatPriceDescription(price)}</span>
+        </div>
       </div>
 
       {/* Ações */}
@@ -98,7 +117,7 @@ export function PriceRow({
           className="h-8 px-3 text-xs gap-1.5"
         >
           <Pencil className="h-3 w-3" />
-          Editar
+          {CONTENT.edit}
         </Button>
 
         <Button
@@ -107,9 +126,13 @@ export function PriceRow({
           variant="ghost"
           className="h-8 w-8"
           onClick={onCopyLink}
-          title="Copiar link de checkout"
+          title={isCopied ? CONTENT.copied : CONTENT.copyLink}
         >
-          <Copy className={cn('h-3.5 w-3.5', isCopied && 'text-green-600')} />
+          {isCopied ? (
+            <Check className="h-3.5 w-3.5 text-emerald-600" />
+          ) : (
+            <Copy className="h-3.5 w-3.5" />
+          )}
         </Button>
 
         <Button

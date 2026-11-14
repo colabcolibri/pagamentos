@@ -1,5 +1,6 @@
 import { InternalServerError, NotFoundError, ValidationError } from '../../errors'
 import { getLogger } from '../../logger'
+import { maskDocument } from '../../logger/mask-pii'
 import { asaasCustomerFullNameMessage } from '../validators/customer-full-name.validators'
 
 /**
@@ -319,7 +320,8 @@ export class AsaasService {
       throw new ValidationError('CPF/CNPJ é obrigatório', 'cpfCnpj')
     }
 
-    this.logger.info('Buscando cliente no Asaas', { cpfCnpj })
+    const maskedCpfCnpj = maskDocument(cpfCnpj)
+    this.logger.info('Buscando cliente no Asaas', { cpfCnpj: maskedCpfCnpj })
 
     try {
       const response = await fetch(`${this.baseUrl}/customers?cpfCnpj=${cpfCnpj}`, {
@@ -328,7 +330,10 @@ export class AsaasService {
       })
 
       if (!response.ok) {
-        this.logger.warn('Cliente não encontrado no Asaas', { cpfCnpj, status: response.status })
+        this.logger.warn('Cliente não encontrado no Asaas', {
+          cpfCnpj: maskedCpfCnpj,
+          status: response.status,
+        })
         return null
       }
 
@@ -341,7 +346,7 @@ export class AsaasService {
 
       return customer
     } catch (error) {
-      this.logger.error('Erro ao buscar cliente no Asaas', error, { cpfCnpj })
+      this.logger.error('Erro ao buscar cliente no Asaas', error, { cpfCnpj: maskedCpfCnpj })
       return null
     }
   }

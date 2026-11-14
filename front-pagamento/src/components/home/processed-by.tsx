@@ -1,32 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-
 import Image from 'next/image'
 
-type GatewayAvailability = {
-  asaas: boolean
-  pagarme: boolean
-}
+import { useGatewayAvailability } from '@/hooks/use-gateway-availability'
 
 export function ProcessedBy() {
-  const [gateways, setGateways] = useState<GatewayAvailability | null>(null)
-
-  useEffect(() => {
-    let active = true
-    fetch('/api/payments/gateways')
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data: GatewayAvailability | null) => {
-        if (!active || !data) return
-        setGateways({ asaas: Boolean(data.asaas), pagarme: Boolean(data.pagarme) })
-      })
-      .catch(() => {
-        if (active) setGateways({ asaas: false, pagarme: false })
-      })
-    return () => {
-      active = false
-    }
-  }, [])
+  const { data: gateways } = useGatewayAvailability()
 
   if (!gateways || (!gateways.asaas && !gateways.pagarme)) return null
 

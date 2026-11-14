@@ -56,6 +56,7 @@ export {
     parseMaxInstallmentsFromMetadata,
 } from './payments/pricing/checkout-pricing'
 export { resolveCheckoutPricePromo } from './payments/pricing/checkout-price-promo'
+export { recordPricePromoSalesAfterOrderPaid } from './payments/pricing/record-price-promo-sales'
 export { evaluateLoadedCheckoutAddons } from './payments/pricing/checkout-addon-prices'
 export {
     buildCouponPublicLines,

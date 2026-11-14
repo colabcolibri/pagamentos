@@ -316,23 +316,23 @@ function FormSection({
   children: React.ReactNode
 }) {
   return (
-    <section className="rounded-xl border border-border/90 bg-card text-card-foreground shadow-sm overflow-hidden min-w-0">
-      <header className="border-b border-border/80 bg-muted/50 px-4 py-3 sm:px-5">
+    <section className="min-w-0 space-y-4">
+      <header className="border-b border-border/60 pb-3">
         <h3 className="text-sm font-semibold tracking-tight text-foreground">{title}</h3>
         {subtitle ? (
-          <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed max-w-prose">
+          <p className="mt-1 text-xs text-muted-foreground leading-relaxed max-w-prose">
             {subtitle}
           </p>
         ) : null}
       </header>
-      <div className="space-y-4 p-4 sm:p-5">{children}</div>
+      <div className="space-y-4">{children}</div>
     </section>
   )
 }
 
 function SubBlock({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 p-3 sm:p-4 space-y-3 min-w-0">
+    <div className="border-l-2 border-border/60 pl-4 space-y-3 min-w-0">
       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{title}</p>
       <div className="space-y-3">{children}</div>
     </div>

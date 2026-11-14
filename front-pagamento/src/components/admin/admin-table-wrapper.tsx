@@ -23,7 +23,7 @@ export function AdminTableWrapper({
   return (
     <div
       className={cn(
-        'w-full min-w-0 overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-xs',
+        'w-full max-w-full min-w-0 overflow-hidden rounded-lg border border-border/70 bg-card text-card-foreground',
         className
       )}
       role={role}

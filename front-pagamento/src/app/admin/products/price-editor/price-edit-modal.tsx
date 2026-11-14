@@ -1136,48 +1136,52 @@ export function PriceEditModal({
         </div>
 
         {/* Body: sidebar + conteúdo */}
-        <div className="flex flex-1 min-h-0">
+        <div className="flex flex-1 min-h-0 flex-col sm:flex-row">
           {/* Sidebar */}
-          <nav className="hidden sm:flex w-44 shrink-0 flex-col gap-1 border-r border-border bg-muted/20 p-3">
+          <nav className="hidden sm:flex w-48 shrink-0 flex-col gap-1 border-r border-border bg-muted/20 p-3">
             {TABS.map((tab) => (
-              <button
+              <Button
                 key={tab.id}
                 type="button"
+                variant={activeTab === tab.id ? 'secondary' : 'ghost'}
+                size="sm"
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  'rounded-md px-3 py-2 text-left text-sm font-medium transition-colors',
+                  'h-9 w-full justify-start px-3 font-medium',
                   activeTab === tab.id
-                    ? 'bg-background text-foreground shadow-sm border border-border/60'
+                    ? 'bg-background text-foreground shadow-xs border border-border/70 hover:bg-background'
                     : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
                 )}
               >
                 {tab.label}
-              </button>
+              </Button>
             ))}
           </nav>
 
           {/* Mobile tab bar */}
-          <div className="sm:hidden absolute top-[61px] left-0 right-0 flex gap-1 overflow-x-auto border-b border-border bg-background px-3 py-2 scrollbar-none z-10">
+          <nav className="sm:hidden flex shrink-0 gap-1.5 overflow-x-auto border-b border-border bg-muted/20 px-4 py-2.5">
             {TABS.map((tab) => (
-              <button
+              <Button
                 key={tab.id}
                 type="button"
+                variant={activeTab === tab.id ? 'secondary' : 'ghost'}
+                size="sm"
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  'shrink-0 rounded-md px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors',
+                  'h-8 shrink-0 px-2.5 text-xs font-medium',
                   activeTab === tab.id
-                    ? 'bg-foreground text-background'
-                    : 'text-muted-foreground hover:text-foreground'
+                    ? 'border border-border/70 bg-background text-foreground shadow-xs hover:bg-background'
+                    : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
                 )}
               >
                 {tab.label}
-              </button>
+              </Button>
             ))}
-          </div>
+          </nav>
 
           {/* Conteúdo com scroll */}
           <ScrollArea className="flex-1 min-w-0">
-            <div className="p-6 sm:p-8 max-w-4xl">
+            <div className="mx-auto max-w-3xl p-5 sm:p-6">
               {activeTab === 'preco' && (
                 <TabPreco index={index} price={price} editor={editor} productId={productId} />
               )}

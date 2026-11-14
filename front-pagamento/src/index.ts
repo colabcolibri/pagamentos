@@ -18,6 +18,3 @@ export type { CheckoutFormData } from './components/checkout/checkout-form'
 // Utilitários e helpers
 export * from './lib/utils'
 export * from './lib/validators'
-
-// Tipos
-export type { AppSupabaseClient } from './lib/payments/types/supabase-client'

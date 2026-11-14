@@ -2,6 +2,7 @@
 // EMAIL SENDER - Send and Log Emails
 // ==========================================
 
+import { maskEmail } from '../../logger/mask-pii';
 import type { SupabaseClient } from '../../types/query-client';
 import {
   mergeOrderCreatedCustomMessage,
@@ -108,7 +109,7 @@ async function sendAndLogEmail(
       html: emailData.html,
     });
 
-    console.log(`✅ Email enviado para: ${emailData.recipient}`);
+    console.log(`✅ Email enviado para: ${maskEmail(emailData.recipient)}`);
     console.log(`✉️ Message-ID: ${info.messageId}`);
 
     // 3. Atualizar log para status "success"

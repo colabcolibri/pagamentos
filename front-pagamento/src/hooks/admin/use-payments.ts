@@ -17,6 +17,9 @@ interface Payment {
   asaas_payment_id?: string
   boleto_url?: string
   pix_qr_code?: string
+  installments?: number | null
+  customer?: { name: string | null; email: string | null } | null
+  product?: { name: string; ref: string | null } | null
 }
 
 async function fetchPayments(): Promise<Payment[]> {

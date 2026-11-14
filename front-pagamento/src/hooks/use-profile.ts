@@ -2,6 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { useAuthSession } from './use-auth-session'
+
 export interface Order {
   id: string
   status: 'pending' | 'paid' | 'failed' | 'cancelled' | 'refunded' | 'expired'
@@ -72,17 +74,7 @@ async function patchProfile(body: { name: string; phone: string }): Promise<Prof
 }
 
 export function useAuthCheck() {
-  return useQuery({
-    queryKey: ['auth', 'user'],
-    queryFn: async () => {
-      const response = await fetch('/api/auth/session')
-      if (!response.ok) return { user: null, isAdmin: false }
-      return (await response.json()) as {
-        user: { id: string; email: string | null } | null
-        isAdmin: boolean
-      }
-    },
-    retry: false,
+  return useAuthSession({
     staleTime: 1 * 60 * 1000,
   })
 }

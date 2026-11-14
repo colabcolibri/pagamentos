@@ -243,8 +243,11 @@ export class PostgresProductRepository implements ProductRepository {
   }
 
   async exists(id: string): Promise<boolean> {
-    const product = await this.findById(id)
-    return product !== null
+    const result = await getPool().query<{ exists: number }>(
+      'SELECT 1 AS exists FROM payments.products WHERE id = $1 LIMIT 1',
+      [id]
+    )
+    return (result.rowCount ?? 0) > 0
   }
 
   private async syncPromoTiers(priceId: string, tiers: PricePromoTierInput[]): Promise<void> {
@@ -297,32 +300,61 @@ export class PostgresProductRepository implements ProductRepository {
   private async syncUpgradesAndAddons(productId: string, prices: UpdatePriceDTO[]): Promise<void> {
     const anchors = prices.map((price) => price.id).filter((id) => id && !id.startsWith('temp-'))
     if (anchors.length === 0) return
-    await getPool().query(
-      'DELETE FROM payments.price_upgrade_paths WHERE from_price_id = ANY($1::uuid[])',
-      [anchors]
-    )
-    await getPool().query(
-      'DELETE FROM payments.price_addon_offers WHERE anchor_price_id = ANY($1::uuid[])',
-      [anchors]
-    )
+    const pool = getPool()
+    await Promise.all([
+      pool.query('DELETE FROM payments.price_upgrade_paths WHERE from_price_id = ANY($1::uuid[])', [
+        anchors,
+      ]),
+      pool.query(
+        'DELETE FROM payments.price_addon_offers WHERE anchor_price_id = ANY($1::uuid[])',
+        [anchors]
+      ),
+    ])
+
+    const upgradeFrom: string[] = []
+    const upgradeTo: string[] = []
+    const upgradeOrder: number[] = []
+    const addonAnchor: string[] = []
+    const addonTarget: string[] = []
+    const addonOrder: number[] = []
+
     for (const price of prices) {
       if (!price.id || price.id.startsWith('temp-')) continue
       for (const [index, toId] of (price.upgrade_to_price_ids ?? []).entries()) {
         if (!toId || toId === price.id) continue
-        await getPool().query(
-          `INSERT INTO payments.price_upgrade_paths (from_price_id, to_price_id, sort_order)
-           VALUES ($1, $2, $3)`,
-          [price.id, toId, index]
-        )
+        upgradeFrom.push(price.id)
+        upgradeTo.push(toId)
+        upgradeOrder.push(index)
       }
       for (const [index, addonId] of (price.addon_price_ids ?? []).entries()) {
         if (!addonId || addonId === price.id) continue
-        await getPool().query(
-          `INSERT INTO payments.price_addon_offers (anchor_price_id, addon_price_id, sort_order)
-           VALUES ($1, $2, $3)`,
-          [price.id, addonId, index]
-        )
+        addonAnchor.push(price.id)
+        addonTarget.push(addonId)
+        addonOrder.push(index)
       }
+    }
+
+    const inserts: Promise<unknown>[] = []
+    if (upgradeFrom.length > 0) {
+      inserts.push(
+        pool.query(
+          `INSERT INTO payments.price_upgrade_paths (from_price_id, to_price_id, sort_order)
+           SELECT * FROM UNNEST($1::uuid[], $2::uuid[], $3::int[])`,
+          [upgradeFrom, upgradeTo, upgradeOrder]
+        )
+      )
+    }
+    if (addonAnchor.length > 0) {
+      inserts.push(
+        pool.query(
+          `INSERT INTO payments.price_addon_offers (anchor_price_id, addon_price_id, sort_order)
+           SELECT * FROM UNNEST($1::uuid[], $2::uuid[], $3::int[])`,
+          [addonAnchor, addonTarget, addonOrder]
+        )
+      )
+    }
+    if (inserts.length > 0) {
+      await Promise.all(inserts)
     }
     void productId
   }

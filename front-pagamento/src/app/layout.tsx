@@ -44,9 +44,11 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <UmamiScript />
         <BrandProvider brand={brand}>
-          <QueryProvider>{children}</QueryProvider>
-          <Toast />
-          <FaleConoscoFab />
+          <QueryProvider>
+            {children}
+            <Toast />
+            <FaleConoscoFab />
+          </QueryProvider>
         </BrandProvider>
       </body>
     </html>

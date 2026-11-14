@@ -29,7 +29,6 @@
   },
   "files": [
     "dist/**/*",
-    "templates/**/*",
     "README.md",
     "ARCHITECTURE.md",
     "PUBLISH.md",

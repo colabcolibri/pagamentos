@@ -80,11 +80,13 @@ async function fetchEmailLogById(id: string): Promise<EmailLogDetail> {
 }
 
 export function useEmailLogs(params: EmailLogsParams = {}) {
+  const isFirstUnfilteredPage =
+    (params.page ?? 1) === 1 && !params.q && !params.status && !params.type
   return useQuery({
     queryKey: ['admin', 'email-logs', params],
     queryFn: () => fetchEmailLogs(params),
     staleTime: 30 * 1000,
-    refetchInterval: 30 * 1000,
+    refetchInterval: isFirstUnfilteredPage ? 30 * 1000 : false,
   })
 }
 

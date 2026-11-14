@@ -149,43 +149,51 @@ export function EmailConfigEditor({ value, onChange }: EmailConfigEditorProps) {
 
     return (
       <Collapsible key={type} open={isOpen} onOpenChange={() => toggleSection(type)}>
-        <div className="rounded-xl border border-border/80 bg-card shadow-sm overflow-hidden">
+        <div className="border-b border-border/60">
           <CollapsibleTrigger asChild>
-            <div className="flex cursor-pointer items-center justify-between p-4 hover:bg-muted/40">
+            <Button
+              type="button"
+              variant="ghost"
+              className="flex h-auto w-full items-center justify-between gap-4 rounded-none px-0 py-3.5 text-left font-normal hover:bg-transparent"
+            >
               <div className="flex-1 min-w-0">
-                <h3 className="text-base font-semibold wrap-break-word">{title}</h3>
-                <p className="text-sm text-muted-foreground wrap-break-word">{description}</p>
+                <h3 className="text-sm font-semibold wrap-break-word">{title}</h3>
+                <p className="text-xs text-muted-foreground wrap-break-word">{description}</p>
               </div>
-              <Button variant="ghost" size="sm" className="shrink-0" type="button">
+              <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground">
                 {isOpen ? <Minus className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-              </Button>
-            </div>
+              </span>
+            </Button>
           </CollapsibleTrigger>
 
           <CollapsibleContent>
-            <div className="space-y-4 border-t border-border/60 bg-muted/10 p-4 sm:p-5">
-              {/* From Name */}
-              <Field>
-                <FieldLabel htmlFor={`${type}-from-name`}>{CONTENT.fields.fromName} *</FieldLabel>
-                <Input
-                  id={`${type}-from-name`}
-                  value={emailConfig.from_name || ''}
-                  onChange={(e) => updateConfig(type, { from_name: e.target.value })}
-                  placeholder={CONTENT.fields.fromNamePlaceholder}
-                />
-              </Field>
+            <div className="space-y-4 pb-5 pt-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {/* From Name */}
+                <Field>
+                  <FieldLabel htmlFor={`${type}-from-name`}>{CONTENT.fields.fromName} *</FieldLabel>
+                  <Input
+                    id={`${type}-from-name`}
+                    value={emailConfig.from_name || ''}
+                    onChange={(e) => updateConfig(type, { from_name: e.target.value })}
+                    placeholder={CONTENT.fields.fromNamePlaceholder}
+                  />
+                </Field>
 
-              {/* From Email */}
-              <Field>
-                <FieldLabel htmlFor={`${type}-from-email`}>{CONTENT.fields.fromEmail} *</FieldLabel>
-                <Input
-                  id={`${type}-from-email`}
-                  type="email"
-                  value={emailConfig.from_email || ''}
-                  onChange={(e) => updateConfig(type, { from_email: e.target.value })}
-                  placeholder={CONTENT.fields.fromEmailPlaceholder}
-                />
-              </Field>
+                {/* From Email */}
+                <Field>
+                  <FieldLabel htmlFor={`${type}-from-email`}>
+                    {CONTENT.fields.fromEmail} *
+                  </FieldLabel>
+                  <Input
+                    id={`${type}-from-email`}
+                    type="email"
+                    value={emailConfig.from_email || ''}
+                    onChange={(e) => updateConfig(type, { from_email: e.target.value })}
+                    placeholder={CONTENT.fields.fromEmailPlaceholder}
+                  />
+                </Field>
+              </div>
 
               {/* Reply To */}
               <Field>

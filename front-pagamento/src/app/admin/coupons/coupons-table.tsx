@@ -269,7 +269,10 @@ export function CouponsTable() {
         cell: ({ row }) => {
           const c = row.original
           return (
-            <div className="flex items-center justify-end gap-1">
+            <div
+              className="flex items-center justify-end gap-1"
+              onClick={(e) => e.stopPropagation()}
+            >
               <Button
                 type="button"
                 variant="ghost"
@@ -349,6 +352,7 @@ export function CouponsTable() {
         emptyIcon={<TicketPercent className="size-10 text-muted-foreground/60" />}
         emptyTitle={CONTENT.table.empty}
         toolbar={toolbar}
+        onRowClick={(row) => openEdit(row)}
         getRowId={(row) => row.id}
       />
 

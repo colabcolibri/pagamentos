@@ -34,6 +34,17 @@ interface PaymentInfo {
   pix_code?: string | null
 }
 
+const POLL_INTERVAL_MS = 5000
+const TERMINAL_PAYMENT_STATUSES = new Set([
+  'paid',
+  'approved',
+  'failed',
+  'cancelled',
+  'canceled',
+  'refunded',
+  'expired',
+])
+
 export function usePaymentPolling({
   paymentId,
   enabled,
@@ -45,11 +56,18 @@ export function usePaymentPolling({
   const hasCalledSuccess = useRef(false)
   const hasCalledBoleto = useRef(false)
   const hasCalledPix = useRef(false)
-  const [paymentInfo, setPaymentInfo] = useState<PaymentInfo | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [manuallyStopped, setManuallyStopped] = useState(false)
 
-  const { data: initialPaymentInfo } = useQuery({
-    queryKey: ['payment-status-initial', paymentId, gateway],
+  // Reset refs quando paymentId muda
+  useEffect(() => {
+    hasCalledSuccess.current = false
+    hasCalledBoleto.current = false
+    hasCalledPix.current = false
+    setManuallyStopped(false)
+  }, [paymentId])
+
+  const { data: paymentInfo = null, isLoading } = useQuery({
+    queryKey: ['payment-status', paymentId, gateway],
     queryFn: async () => {
       if (!paymentId) return null
 
@@ -63,55 +81,19 @@ export function usePaymentPolling({
       }
 
       const { payment } = await response.json()
-      return payment as PaymentInfo
+      return (payment ?? null) as PaymentInfo | null
     },
     enabled: enabled && !!paymentId,
     retry: 2,
-    staleTime: 0, // Sempre buscar status inicial
+    staleTime: 0,
+    refetchIntervalInBackground: false,
+    refetchInterval: (query) => {
+      if (manuallyStopped || !enabled || !paymentId) return false
+      const status = query.state.data?.status
+      if (status && TERMINAL_PAYMENT_STATUSES.has(status)) return false
+      return POLL_INTERVAL_MS
+    },
   })
-
-  // Atualizar estado quando dados iniciais chegarem
-  useEffect(() => {
-    if (initialPaymentInfo) {
-      setPaymentInfo(initialPaymentInfo)
-      setIsLoading(false)
-    }
-  }, [initialPaymentInfo])
-
-  // Reset refs quando paymentId muda
-  useEffect(() => {
-    hasCalledSuccess.current = false
-    hasCalledBoleto.current = false
-    hasCalledPix.current = false
-    setPaymentInfo(null)
-    setIsLoading(true)
-  }, [paymentId])
-
-  const POLL_INTERVAL_MS = 5000
-  useEffect(() => {
-    if (!enabled || !paymentId) return
-    if (paymentInfo?.status === 'paid' || paymentInfo?.status === 'approved') return
-
-    const poll = async () => {
-      try {
-        const res = await fetch(`/api/payments/${paymentId}/status?gateway=${gateway}`, {
-          credentials: 'include',
-        })
-        if (!res.ok) return
-        const { payment } = await res.json()
-        if (payment && payment.status !== paymentInfo?.status) {
-          devLog('Polling: Status atualizado', payment.status)
-          setPaymentInfo(payment as PaymentInfo)
-          setIsLoading(false)
-        }
-      } catch {
-        // Ignorar erros de polling
-      }
-    }
-
-    const id = setInterval(poll, POLL_INTERVAL_MS)
-    return () => clearInterval(id)
-  }, [enabled, paymentId, gateway, paymentInfo?.status])
 
   // Processar mudanças de status e executar callbacks
   useEffect(() => {
@@ -154,7 +136,7 @@ export function usePaymentPolling({
     paymentInfo,
     isLoading,
     stopPolling: () => {
-      devLog('Realtime: stopPolling chamado (não necessário com Realtime)')
+      setManuallyStopped(true)
     },
   }
 }

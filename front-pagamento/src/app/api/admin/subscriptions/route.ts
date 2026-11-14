@@ -78,21 +78,23 @@ export const GET = createApiHandler(
            'products', json_build_object('id', p.id, 'name', p.name, 'ref', p.ref)
          ) AS prices`
       : ''
-    const listed = await getPool().query(
-      `SELECT s.* ${relationSelect}
-       FROM payments.subscriptions s
-       LEFT JOIN payments.profiles pf ON pf.id = s.user_id
-       LEFT JOIN payments.prices pr ON pr.id = s.price_id
-       LEFT JOIN payments.products p ON p.id = pr.product_id
-       WHERE ${where}
-       ORDER BY s.created_at DESC
-       LIMIT ${pageLimit} OFFSET ${pageOffset}`,
-      values
-    )
-    const counted = await getPool().query<{ total: number }>(
-      `SELECT count(*)::int AS total FROM payments.subscriptions s WHERE ${where}`,
-      values
-    )
+    const [listed, counted] = await Promise.all([
+      getPool().query(
+        `SELECT s.* ${relationSelect}
+         FROM payments.subscriptions s
+         LEFT JOIN payments.profiles pf ON pf.id = s.user_id
+         LEFT JOIN payments.prices pr ON pr.id = s.price_id
+         LEFT JOIN payments.products p ON p.id = pr.product_id
+         WHERE ${where}
+         ORDER BY s.created_at DESC
+         LIMIT ${pageLimit} OFFSET ${pageOffset}`,
+        values
+      ),
+      getPool().query<{ total: number }>(
+        `SELECT count(*)::int AS total FROM payments.subscriptions s WHERE ${where}`,
+        values
+      ),
+    ])
 
     return NextResponse.json({
       subscriptions: listed.rows,

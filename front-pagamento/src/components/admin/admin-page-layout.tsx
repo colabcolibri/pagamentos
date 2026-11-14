@@ -10,19 +10,23 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 
-const ROUTE_LABELS: Record<string, string> = {
-  '/admin': 'Dashboard',
-  '/admin/products': 'Produtos',
-  '/admin/payments': 'Pagamentos',
-  '/admin/orders': 'Pedidos',
-  '/admin/coupons': 'Cupons',
-  '/admin/subscriptions': 'Assinaturas',
-  '/admin/webhooks': 'Webhooks',
-  '/admin/audit': 'Trilha',
-  '/admin/emails': 'Emails enviados',
-  '/admin/admins': 'Administradores',
-  '/admin/settings': 'Configurações',
-}
+const CONTENT = {
+  breadcrumbLabel: 'Breadcrumb',
+  adminRoot: 'Admin',
+  routes: {
+    '/admin': 'Dashboard',
+    '/admin/products': 'Produtos',
+    '/admin/payments': 'Pagamentos',
+    '/admin/orders': 'Pedidos',
+    '/admin/coupons': 'Cupons',
+    '/admin/subscriptions': 'Assinaturas',
+    '/admin/webhooks': 'Webhooks',
+    '/admin/audit': 'Trilha',
+    '/admin/emails': 'Emails enviados',
+    '/admin/admins': 'Administradores',
+    '/admin/settings': 'Configurações',
+  } as Record<string, string>,
+} as const
 
 interface AdminPageLayoutProps {
   children: React.ReactNode
@@ -33,7 +37,7 @@ interface AdminPageLayoutProps {
 
 export function AdminPageLayout({ children, title, subtitle, action }: AdminPageLayoutProps) {
   const pathname = usePathname()
-  const currentLabel = ROUTE_LABELS[pathname] ?? title
+  const currentLabel = CONTENT.routes[pathname] ?? title
   const isRoot = pathname === '/admin'
 
   return (
@@ -43,12 +47,15 @@ export function AdminPageLayout({ children, title, subtitle, action }: AdminPage
         <div className="flex min-w-0 items-center gap-2.5">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="h-4" />
-          <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 text-sm">
+          <nav
+            aria-label={CONTENT.breadcrumbLabel}
+            className="flex min-w-0 items-center gap-1.5 text-sm"
+          >
             <Link
               href="/admin"
               className="text-muted-foreground transition-colors hover:text-foreground"
             >
-              Admin
+              {CONTENT.adminRoot}
             </Link>
             {!isRoot && (
               <>
@@ -63,9 +70,13 @@ export function AdminPageLayout({ children, title, subtitle, action }: AdminPage
       </header>
 
       {/* Scroll vertical premium com overlay do Base UI */}
-      <ScrollArea orientation="vertical" className="flex-1 min-h-0" contentClassName="min-h-full">
-        <main className="min-w-0">
-          <div className="mx-auto w-full max-w-7xl min-w-0 px-4 py-6 md:px-6 lg:px-8 space-y-6">
+      <ScrollArea
+        orientation="vertical"
+        className="flex-1 min-h-0 w-full min-w-0"
+        contentClassName="min-h-full"
+      >
+        <main className="w-full min-w-0 max-w-full overflow-x-hidden">
+          <div className="mx-auto w-full max-w-6xl min-w-0 px-4 py-6 md:px-6 lg:px-8 space-y-6">
             {/* Cabeçalho da página enxuto e alinhado */}
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0 space-y-1">

@@ -12,7 +12,7 @@ type AdminFormSectionProps = {
 }
 
 /**
- * Agrupa campos do admin com título, descrição e contorno visível.
+ * Agrupa campos do admin com cabeçalho sóbrio e divisor hairline, sem caixas aninhadas.
  */
 export function AdminFormSection({
   title,
@@ -24,30 +24,19 @@ export function AdminFormSection({
   const nested = variant === 'nested'
   return (
     <section
-      className={cn(
-        'min-w-0 rounded-xl border shadow-sm',
-        nested
-          ? 'border-dashed border-border/70 bg-muted/10 p-3 sm:p-4'
-          : 'border-border/80 bg-card p-4 sm:p-5',
-        className
-      )}
+      className={cn('min-w-0 space-y-4', nested && 'border-l-2 border-border/60 pl-4', className)}
     >
-      <header
-        className={cn(
-          'space-y-1',
-          nested ? 'border-b border-border/50 pb-2 mb-3' : 'border-b border-border/60 pb-3 mb-4'
-        )}
-      >
+      <header className={cn('space-y-1 border-b border-border/60', nested ? 'pb-2' : 'pb-3')}>
         <h4
           className={cn(
-            'font-semibold text-foreground tracking-tight',
+            'font-semibold tracking-tight text-foreground',
             nested ? 'text-xs' : 'text-sm'
           )}
         >
           {title}
         </h4>
         {description ? (
-          <p className="text-xs text-muted-foreground leading-relaxed">{description}</p>
+          <p className="text-xs leading-relaxed text-muted-foreground">{description}</p>
         ) : null}
       </header>
       <div className="space-y-4">{children}</div>

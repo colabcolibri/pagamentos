@@ -1,7 +1,11 @@
 import { z } from 'zod'
 
 import { getPool } from '@/lib/db/pool'
-import { loadGatewayConfig, toAdminGatewayView } from '@/lib/payments/gateway-config'
+import {
+  invalidateGatewayConfigCache,
+  loadGatewayConfig,
+  toAdminGatewayView,
+} from '@/lib/payments/gateway-config'
 import { encryptStoredSecret } from '@/lib/security/secret-box'
 
 export const platformSettingsPatchSchema = z.object({
@@ -85,6 +89,7 @@ export async function updatePlatformSettings(data: PlatformSettingsPatch) {
        WHERE id = $${values.length}`,
       values
     )
+    invalidateGatewayConfigCache()
   }
   return toAdminGatewayView(await loadGatewayConfig())
 }

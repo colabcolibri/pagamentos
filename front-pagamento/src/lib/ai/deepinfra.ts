@@ -57,6 +57,7 @@ export async function deepInfraChat(
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(45_000),
   })
 
   if (!response.ok) {

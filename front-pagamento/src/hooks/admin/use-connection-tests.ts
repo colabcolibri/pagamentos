@@ -26,7 +26,7 @@ export function useConnectionTests() {
   const query = useQuery({
     queryKey: ['admin', 'connections'],
     queryFn: fetchConnections,
-    staleTime: 0,
+    staleTime: 2 * 60 * 1000,
     refetchOnWindowFocus: false,
   })
 

@@ -68,33 +68,36 @@ export const POST = createApiHandlerWithParams(
       )
     }
 
-    const { data: pagarmeRows, error: pgErr } = await supabaseAdmin
-      .schema('payments')
-      .from('pagarme_payments')
-      .select('id, status, payment_link_id')
-      .eq('order_id', id)
+    const [{ data: pagarmeRows, error: pgErr }, { data: asaasRows, error: asaasErr }] =
+      await Promise.all([
+        supabaseAdmin
+          .schema('payments')
+          .from('pagarme_payments')
+          .select('id, status, payment_link_id')
+          .eq('order_id', id),
+        supabaseAdmin
+          .schema('payments')
+          .from('asaas_payments')
+          .select('id, status, asaas_payment_id, asaas_checkout_id, asaas_installment_id')
+          .eq('order_id', id),
+      ])
 
     if (pgErr) {
       logger.error('Erro ao listar pagamentos Pagarme do pedido', { id, error: pgErr })
       return NextResponse.json({ error: 'Erro ao verificar cobranças vinculadas' }, { status: 500 })
     }
 
-    const { data: asaasRows, error: asaasErr } = await supabaseAdmin
-      .schema('payments')
-      .from('asaas_payments')
-      .select('id, status, asaas_payment_id, asaas_checkout_id, asaas_installment_id')
-      .eq('order_id', id)
-
     if (asaasErr) {
       logger.error('Erro ao listar pagamentos Asaas do pedido', { id, error: asaasErr })
       return NextResponse.json({ error: 'Erro ao verificar cobranças vinculadas' }, { status: 500 })
     }
 
-    const paymentLogger = getLogger()
+    type CancelablePaymentRow = { id: string; status: string | null }
+    const pagarmeList: CancelablePaymentRow[] = pagarmeRows ?? []
+    const asaasList: CancelablePaymentRow[] = asaasRows ?? []
 
-    for (const row of pagarmeRows ?? []) {
-      if (row.status === 'cancelled') continue
-      if (isAdminPaymentConfirmedForOrderCancel(row.status)) {
+    for (const row of pagarmeList) {
+      if (row.status !== 'cancelled' && isAdminPaymentConfirmedForOrderCancel(row.status)) {
         return NextResponse.json(
           {
             error: `Não é possível cancelar: cobrança Pagar.me confirmada (status ${row.status}).`,
@@ -102,23 +105,9 @@ export const POST = createApiHandlerWithParams(
           { status: 409 }
         )
       }
-      const result = await cancelAdminPaymentLink({
-        supabase: supabaseAdmin,
-        paymentRowId: row.id,
-        gateway: 'pagarme',
-        logger: paymentLogger,
-      })
-      if (!result.ok) {
-        return NextResponse.json(
-          { error: result.error, paymentId: row.id, gateway: 'pagarme' },
-          { status: result.status }
-        )
-      }
     }
-
-    for (const row of asaasRows ?? []) {
-      if (row.status === 'cancelled') continue
-      if (isAdminPaymentConfirmedForOrderCancel(row.status)) {
+    for (const row of asaasList) {
+      if (row.status !== 'cancelled' && isAdminPaymentConfirmedForOrderCancel(row.status)) {
         return NextResponse.json(
           {
             error: `Não é possível cancelar: cobrança Asaas confirmada (status ${row.status}).`,
@@ -126,25 +115,48 @@ export const POST = createApiHandlerWithParams(
           { status: 409 }
         )
       }
-      const result = await cancelAdminPaymentLink({
-        supabase: supabaseAdmin,
-        paymentRowId: row.id,
-        gateway: 'asaas',
-        logger: paymentLogger,
-      })
-      if (!result.ok) {
-        return NextResponse.json(
-          { error: result.error, paymentId: row.id, gateway: 'asaas' },
-          { status: result.status }
-        )
-      }
+    }
+
+    const paymentLogger = getLogger()
+    const cancelTargets = [
+      ...pagarmeList
+        .filter((row) => row.status !== 'cancelled')
+        .map((row) => ({ paymentRowId: row.id, gateway: 'pagarme' as const })),
+      ...asaasList
+        .filter((row) => row.status !== 'cancelled')
+        .map((row) => ({ paymentRowId: row.id, gateway: 'asaas' as const })),
+    ]
+
+    const cancelResults = await Promise.all(
+      cancelTargets.map(async (target) => ({
+        ...target,
+        result: await cancelAdminPaymentLink({
+          supabase: supabaseAdmin,
+          paymentRowId: target.paymentRowId,
+          gateway: target.gateway,
+          logger: paymentLogger,
+        }),
+      }))
+    )
+
+    const failedCancel = cancelResults.find((item) => !item.result.ok)
+    if (failedCancel && !failedCancel.result.ok) {
+      return NextResponse.json(
+        {
+          error: failedCancel.result.error,
+          paymentId: failedCancel.paymentRowId,
+          gateway: failedCancel.gateway,
+        },
+        { status: failedCancel.result.status }
+      )
     }
 
     try {
       await getPool().query(
         `UPDATE payments.orders
          SET status = 'cancelled', cancelled_at = now()
-         WHERE id = $1`,
+         WHERE id = $1
+           AND status IN ('pending', 'failed', 'expired')`,
         [id]
       )
     } catch (e) {

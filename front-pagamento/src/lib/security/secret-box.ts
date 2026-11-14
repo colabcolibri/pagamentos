@@ -23,7 +23,14 @@ export function encryptStoredSecret(
   if (trimmed.startsWith(SECRET_BOX_PREFIX)) return trimmed
 
   const key = resolveEncryptionKey(explicitKey)
-  if (!key) return trimmed
+  if (!key) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'SETTINGS_ENCRYPTION_KEY ou ACCESS_CODE_SECRET é obrigatório em produção para criptografar segredos.'
+      )
+    }
+    return trimmed
+  }
 
   const iv = randomBytes(IV_BYTE_LENGTH)
   const cipher = createCipheriv('aes-256-gcm', key, iv, {

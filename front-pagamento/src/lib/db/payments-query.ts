@@ -30,8 +30,13 @@ function parseFields(source: string): Field[] {
   const text = source.trim()
   let index = 0
   while (index < text.length) {
-    while (text[index] === ' ' || text[index] === ',') index += 1
+    while (/\s/.test(text[index] ?? '') || text[index] === ',') index += 1
     if (index >= text.length) break
+    if (text[index] === '*') {
+      index += 1
+      fields.push({ kind: 'column', name: '*' })
+      continue
+    }
     const start = index
     while (index < text.length && /[A-Za-z0-9_]/.test(text[index] ?? '')) index += 1
     const name = text.slice(start, index)
@@ -41,6 +46,7 @@ function parseFields(source: string): Field[] {
       inner = true
       index += 6
     }
+    while (/\s/.test(text[index] ?? '')) index += 1
     if (text[index] === '(') {
       let depth = 1
       index += 1

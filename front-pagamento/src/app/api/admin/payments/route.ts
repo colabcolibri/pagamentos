@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 
 import { requireAdmin } from '@/lib/auth'
 import { createAdminPaymentsClient } from '@/lib/db/payments-query'
+import { getPool } from '@/lib/db/pool'
 import { createApiHandler } from '@/lib/errors'
 
 interface Payment {
@@ -19,6 +20,9 @@ interface Payment {
   asaas_payment_id?: string
   boleto_url?: string
   pix_qr_code?: string
+  installments?: number | null
+  customer?: { name: string | null; email: string | null } | null
+  product?: { name: string; ref: string | null } | null
 }
 
 /**
@@ -39,25 +43,25 @@ export const GET = createApiHandler(
 
     const supabase = createAdminPaymentsClient()
 
-    // Buscar pagamentos Pagar.me
-    const { data: pagarmeData, error: pagarmeError } = await supabase
-      .schema('payments')
-      .from('pagarme_payments')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(50)
+    const [{ data: pagarmeData, error: pagarmeError }, { data: asaasData, error: asaasError }] =
+      await Promise.all([
+        supabase
+          .schema('payments')
+          .from('pagarme_payments')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(50),
+        supabase
+          .schema('payments')
+          .from('asaas_payments')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(50),
+      ])
 
     if (pagarmeError) {
       throw pagarmeError
     }
-
-    // Buscar pagamentos Asaas
-    const { data: asaasData, error: asaasError } = await supabase
-      .schema('payments')
-      .from('asaas_payments')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(50)
 
     if (asaasError) {
       throw asaasError
@@ -76,9 +80,55 @@ export const GET = createApiHandler(
 
     const allPayments = [...pagarmePayments, ...asaasPayments]
     allPayments.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    const sliced = allPayments.slice(0, 100)
+
+    const userIds = Array.from(new Set(sliced.map((p) => p.user_id).filter(Boolean)))
+    const orderIds = Array.from(
+      new Set(sliced.map((p) => p.order_id).filter((id): id is string => Boolean(id)))
+    )
+
+    const pool = getPool()
+    const [profilesRes, ordersRes] = await Promise.all([
+      userIds.length > 0
+        ? pool.query<{ id: string; name: string | null; email: string | null }>(
+            'SELECT id, name, email FROM payments.profiles WHERE id = ANY($1::uuid[])',
+            [userIds]
+          )
+        : Promise.resolve({ rows: [] }),
+      orderIds.length > 0
+        ? pool.query<{
+            id: string
+            product_name: string | null
+            product_ref: string | null
+          }>(
+            `SELECT o.id, pr.name AS product_name, pr.ref AS product_ref
+             FROM payments.orders o
+             LEFT JOIN payments.products pr ON pr.id = o.product_id
+             WHERE o.id = ANY($1::uuid[])`,
+            [orderIds]
+          )
+        : Promise.resolve({ rows: [] }),
+    ])
+
+    const profileMap = new Map(
+      profilesRes.rows.map((r) => [r.id, { name: r.name, email: r.email }])
+    )
+    const orderMap = new Map(ordersRes.rows.map((r) => [r.id, r]))
+
+    const enriched = sliced.map((p) => {
+      const orderInfo = p.order_id ? orderMap.get(p.order_id) : undefined
+      return {
+        ...p,
+        installments: p.installments ?? null,
+        customer: profileMap.get(p.user_id) ?? null,
+        product: orderInfo?.product_name
+          ? { name: orderInfo.product_name, ref: orderInfo.product_ref }
+          : null,
+      }
+    })
 
     return NextResponse.json({
-      payments: allPayments.slice(0, 100), // Limitar a 100 registros
+      payments: enriched,
     })
   },
   { module: 'admin', action: 'list_payments' }

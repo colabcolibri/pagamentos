@@ -9,6 +9,7 @@ import { AdminPageLayout } from '@/components/admin/admin-page-layout'
 import { GatewaySettingsCard } from '@/components/admin/gateway-settings-card'
 import { IntegrationKeysCard } from '@/components/admin/integration-keys-card'
 import { McpSettingsCard } from '@/components/admin/mcp-settings-card'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -49,6 +50,7 @@ const CONTENT = {
 
   error: {
     title: 'Erro ao carregar',
+    testTitle: 'Erro ao testar',
     description: 'Não foi possível carregar os testes de conexão.',
   },
 } as const
@@ -223,21 +225,23 @@ export default function AdminSettingsPage() {
           </CardHeader>
           <CardContent>
             {error && (
-              <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-destructive">
-                <p className="font-medium">{CONTENT.error.title}</p>
-                <p className="text-sm mt-1">
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>{CONTENT.error.title}</AlertTitle>
+                <AlertDescription>
                   {error instanceof Error ? error.message : String(error)}
-                </p>
-              </div>
+                </AlertDescription>
+              </Alert>
             )}
 
             {testError && (
-              <div className="mb-4 rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-destructive">
-                <p className="font-medium">Erro ao testar</p>
-                <p className="text-sm mt-1">
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>{CONTENT.error.testTitle}</AlertTitle>
+                <AlertDescription>
                   {testError instanceof Error ? testError.message : String(testError)}
-                </p>
-              </div>
+                </AlertDescription>
+              </Alert>
             )}
 
             {isLoading ? (

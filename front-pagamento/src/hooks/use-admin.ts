@@ -1,56 +1,32 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { devError } from '@/lib/dev-log'
-
-type SessionPayload = {
-  user: { id: string; email: string; name?: string } | null
-  isAdmin: boolean
-  role: string | null
-}
-
-async function loadSession(): Promise<SessionPayload> {
-  const response = await fetch('/api/auth/session', { credentials: 'include' })
-  if (!response.ok) {
-    throw new Error('Não foi possível ler a sessão')
-  }
-  return response.json()
-}
+import { useAuthSession } from './use-auth-session'
 
 export function useCurrentAdmin() {
-  return useQuery({
-    queryKey: ['admin', 'current'],
-    queryFn: async () => {
-      try {
-        const session = await loadSession()
-        if (!session.user || !session.isAdmin) return null
-        return {
-          name: session.user.name || session.user.email,
-          email: session.user.email,
-          role: session.role ?? '',
-        }
-      } catch (error) {
-        devError('Erro ao buscar admin atual:', error)
-        throw error
+  return useAuthSession({
+    staleTime: 5 * 60 * 1000,
+    select: (session) => {
+      if (!session.user || !session.isAdmin) return null
+      return {
+        name: session.user.name || session.user.email || '',
+        email: session.user.email ?? '',
+        role: session.role ?? '',
       }
     },
-    retry: false,
-    staleTime: 5 * 60 * 1000,
   })
 }
 
 export function useIsAdmin() {
-  return useQuery({
-    queryKey: ['admin', 'isAdmin'],
-    queryFn: async () => (await loadSession()).isAdmin,
+  return useAuthSession({
     staleTime: 10 * 60 * 1000,
+    select: (session) => session.isAdmin,
   })
 }
 
 export function useIsSuperAdmin() {
-  return useQuery({
-    queryKey: ['admin', 'isSuperAdmin'],
-    queryFn: async () => (await loadSession()).role === 'super_admin',
+  return useAuthSession({
     staleTime: 10 * 60 * 1000,
+    select: (session) => session.role === 'super_admin',
   })
 }
 

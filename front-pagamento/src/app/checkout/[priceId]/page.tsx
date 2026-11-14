@@ -25,6 +25,7 @@ import type { PriceTopicSection } from '@/components/price-topics/types'
 import type { RefundPolicyContent } from '@/components/refund-policy/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { useGatewayAvailability } from '@/hooks/use-gateway-availability'
 import { useProductByPriceId } from '@/hooks/use-product-price'
 import { estimateAddonCents } from '@/lib/checkout/addon-estimate'
 import { getAddonOfferDisplay } from '@/lib/checkout/addon-offer-display'
@@ -99,10 +100,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ priceId: st
   const [showPaymentStatus, setShowPaymentStatus] = useState(false)
   const [paymentId, setPaymentId] = useState<string | null>(null)
   const [paymentLinkUrl, setPaymentLinkUrl] = useState<string | null>(null)
-  const [gatewayAvailability, setGatewayAvailability] = useState<{
-    asaas: boolean
-    pagarme: boolean
-  } | null>(null)
+  const { data: gatewayAvailability = null } = useGatewayAvailability()
   const selectedGateway: 'pagarme' | 'asaas' | null =
     gatewayAvailability == null
       ? null
@@ -126,23 +124,6 @@ export default function CheckoutPage({ params }: { params: Promise<{ priceId: st
   useEffect(() => {
     setCouponPromoOverlay(null)
   }, [priceId])
-
-  useEffect(() => {
-    let cancelled = false
-    fetch('/api/payments/gateways')
-      .then((response) => (response.ok ? response.json() : { asaas: false, pagarme: false }))
-      .then((data: { asaas?: boolean; pagarme?: boolean }) => {
-        if (!cancelled) {
-          setGatewayAvailability({ asaas: Boolean(data.asaas), pagarme: Boolean(data.pagarme) })
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setGatewayAvailability({ asaas: false, pagarme: false })
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   useEffect(() => {
     setSelectedAddonIds([])

@@ -12,6 +12,12 @@ import { isPersistedPriceId } from './sections/price-relations-section'
 import type { CatalogPriceOption, Price, PricesEditorProps } from './types'
 import { usePricesEditor } from './use-prices-editor'
 
+const CONTENT = {
+  empty: 'Nenhum preço configurado.',
+  addFirst: 'Adicionar primeiro preço',
+  addPrice: 'Adicionar preço',
+} as const
+
 function priceRowLabel(p: Price): string {
   const title = p.metadata?.title
   const t = typeof title === 'string' && title.trim() ? title.trim() : ''
@@ -56,16 +62,16 @@ export function PricesEditor(props: PricesEditorProps) {
     <div className="space-y-4 min-w-0">
       {/* Lista */}
       {prices.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 py-10 text-center">
-          <p className="text-sm text-muted-foreground mb-3">Nenhum preço configurado.</p>
+        <div className="rounded-lg border border-dashed border-border/70 py-10 text-center">
+          <p className="text-sm text-muted-foreground mb-3">{CONTENT.empty}</p>
           <Button type="button" size="sm" variant="outline" onClick={addPrice}>
             <Plus className="h-4 w-4 mr-1.5" />
-            Adicionar primeiro preço
+            {CONTENT.addFirst}
           </Button>
         </div>
       ) : (
         <>
-          <div className="rounded-xl border border-border/60 overflow-hidden">
+          <div className="divide-y divide-border/60 border-y border-border/60">
             {prices.map((price, index) => (
               <PriceRow
                 key={price.id}
@@ -86,7 +92,7 @@ export function PricesEditor(props: PricesEditorProps) {
           <div className="flex justify-end">
             <Button type="button" size="sm" variant="outline" onClick={addPrice}>
               <Plus className="h-4 w-4 mr-1.5" />
-              Adicionar preço
+              {CONTENT.addPrice}
             </Button>
           </div>
         </>

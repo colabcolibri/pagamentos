@@ -15,242 +15,239 @@ import {
 } from 'lucide-react'
 
 import { AdminPageLayout } from '@/components/admin/admin-page-layout'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useDashboardStats } from '@/hooks/admin'
 
 const CONTENT = {
   title: 'Dashboard',
-  subtitle: 'Visão geral do sistema',
-
-  cards: {
-    core: '@quitou/core',
-    products: 'Produtos',
-    revenue: 'Receita do Mês',
-    orders: 'Pedidos',
-    subscriptions: 'Assinaturas',
-    webhooks: 'Webhooks',
+  subtitle: 'Visão geral da operação e saúde do sistema',
+  actions: {
+    newProduct: 'Produtos',
+    viewOrders: 'Ver pedidos',
+    openLink: 'Abrir',
   },
-
+  kpis: {
+    revenue: 'Receita do mês',
+    orders: 'Pedidos',
+    products: 'Produtos',
+    subscriptions: 'Assinaturas',
+  },
+  descriptions: {
+    monthPayments: (count: number) => `${count} pagamentos este mês`,
+    ordersSummary: (pending: number, paid: number) => `${pending} pendentes · ${paid} pagos`,
+    activeProducts: (count: number) => `${count} produtos ativos`,
+    activeSubscriptions: (count: number) => `${count} assinaturas ativas`,
+    todayWebhooks: (today: number, total: number) => `${today} recebidos hoje · ${total} no total`,
+    coreVersion: (version: string) => `Versão ${version}`,
+    coreNotFound: 'Pacote não encontrado',
+  },
+  systemSection: {
+    title: 'Operação & Sistema',
+    webhooksLabel: 'Webhooks processados',
+    coreLabel: 'Pacote @quitou/core',
+    coreActive: 'Ativo',
+    coreError: 'Erro',
+  },
   error: {
     title: 'Erro ao carregar estatísticas',
-    description: 'Tente recarregar a página',
+    description: 'Tente recarregar a página.',
   },
 } as const
 
-interface StatCardProps {
-  title: string
-  value: string | number
-  description: string
-  icon: React.ComponentType<{ className?: string }>
-  iconColor?: 'primary' | 'success' | 'tertiary' | 'warning' | 'destructive' | 'muted'
-  href?: string
-  variant?: 'default' | 'large'
+type CoreStatus = {
+  installed: boolean
+  version?: string
+  error?: string
 }
 
-// ============================================================================
-// CONFIGURAÇÕES DE CORES
-// ============================================================================
-const ICON_COLOR_MAP = {
-  primary: {
-    text: 'text-primary',
-    bg: 'bg-primary/10',
-    hoverBorder: 'hover:border-l-primary',
-  },
-  success: {
-    text: 'text-success',
-    bg: 'bg-success/10',
-    hoverBorder: 'hover:border-l-success',
-  },
-  tertiary: {
-    text: 'text-tertiary',
-    bg: 'bg-tertiary/10',
-    hoverBorder: 'hover:border-l-tertiary',
-  },
-  warning: {
-    text: 'text-warning',
-    bg: 'bg-warning/10',
-    hoverBorder: 'hover:border-l-warning',
-  },
-  destructive: {
-    text: 'text-destructive',
-    bg: 'bg-destructive/10',
-    hoverBorder: 'hover:border-l-destructive',
-  },
-  muted: {
-    text: 'text-muted-foreground',
-    bg: 'bg-muted/50',
-    hoverBorder: 'hover:border-l-muted-foreground',
-  },
-} as const
-
-type IconColorType = keyof typeof ICON_COLOR_MAP
-
-const StatCard = ({
-  title,
-  value,
-  description,
-  icon: Icon,
-  iconColor = 'primary',
-  href,
-  variant = 'default',
-}: StatCardProps & { iconColor?: IconColorType }) => {
-  const CardWrapper = href ? Link : 'div'
-  const wrapperProps = href ? { href } : {}
-  const colorConfig = ICON_COLOR_MAP[iconColor || 'primary']
-
-  return (
-    // @ts-expect-error - CardWrapper pode ser Link ou div dinamicamente
-    <CardWrapper {...wrapperProps}>
-      <Card
-        className={`transition-all ${
-          href
-            ? `hover:shadow-md hover:-translate-y-0.5 cursor-pointer border-l-4 border-l-transparent ${colorConfig.hoverBorder}`
-            : ''
-        }`}
-      >
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-          <div className={`p-2.5 rounded-lg ${colorConfig.text} ${colorConfig.bg}`}>
-            <Icon className="h-5 w-5" />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div
-            className={
-              variant === 'large'
-                ? 'scroll-m-20 text-4xl font-extrabold tracking-tight tabular-nums mb-1'
-                : 'scroll-m-20 text-3xl font-bold tracking-tight tabular-nums'
-            }
-          >
-            {value}
-          </div>
-          <div className="flex items-center justify-between mt-2">
-            <p className="text-xs text-muted-foreground">{description}</p>
-            {href && <ArrowRight className="h-4 w-4 text-muted-foreground" />}
-          </div>
-        </CardContent>
-      </Card>
-    </CardWrapper>
-  )
+function formatBRL(cents: number): string {
+  return `R$ ${(cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
 }
 
-export default function AdminDashboard() {
-  const [coreStatus, setCoreStatus] = useState<{
-    installed: boolean
-    version?: string
-    error?: string
-  }>({ installed: false })
-
+export default function AdminDashboardPage() {
   const { data: stats, isLoading: statsLoading, error: statsError } = useDashboardStats()
+  const [coreStatus, setCoreStatus] = useState<CoreStatus>({ installed: false })
 
   useEffect(() => {
-    const checkCore = async () => {
-      try {
-        const corePackage = await import('@quitou/core/package.json')
-        setCoreStatus({ installed: true, version: corePackage.version || '1.0.0' })
-      } catch (error) {
+    fetch('/api/health')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.core) {
+          setCoreStatus(data.core)
+        }
+      })
+      .catch((err) => {
         setCoreStatus({
           installed: false,
-          error: error instanceof Error ? error.message : 'Não encontrado',
+          error: err instanceof Error ? err.message : CONTENT.descriptions.coreNotFound,
         })
-      }
-    }
-    checkCore()
+      })
   }, [])
 
   return (
-    <AdminPageLayout title={CONTENT.title} subtitle={CONTENT.subtitle}>
-      <div className="space-y-4 md:space-y-6">
-        {/* Error State */}
+    <AdminPageLayout
+      title={CONTENT.title}
+      subtitle={CONTENT.subtitle}
+      action={
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" render={<Link href="/admin/orders" />}>
+            {CONTENT.actions.viewOrders}
+          </Button>
+          <Button size="sm" render={<Link href="/admin/products" />}>
+            {CONTENT.actions.newProduct}
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      }
+    >
+      <div className="space-y-10">
         {statsError && (
-          <Card className="border-destructive/20 bg-destructive/10">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3 text-destructive">
-                <AlertCircle className="h-5 w-5 flex-shrink-0" />
-                <div>
-                  <p className="font-medium">{CONTENT.error.title}</p>
-                  <p className="text-sm text-destructive/80 mt-1">{CONTENT.error.description}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>{CONTENT.error.title}</AlertTitle>
+            <AlertDescription>{CONTENT.error.description}</AlertDescription>
+          </Alert>
         )}
 
         {statsLoading ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[...Array(6)].map((_, i) => (
-              <Card key={i}>
-                <CardHeader className="space-y-0 pb-2">
-                  <Skeleton className="h-4 w-28" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-9 w-20 mb-3" />
-                  <Skeleton className="h-3 w-36" />
-                </CardContent>
-              </Card>
-            ))}
+          <div className="space-y-8">
+            <div className="grid grid-cols-1 divide-y divide-border/60 border-y border-border/60 sm:grid-cols-4 sm:divide-x sm:divide-y-0">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="space-y-2 py-5 sm:px-5 first:sm:pl-0 last:sm:pr-0">
+                  <Skeleton className="h-3.5 w-24" />
+                  <Skeleton className="h-7 w-28" />
+                  <Skeleton className="h-3 w-32" />
+                </div>
+              ))}
+            </div>
+            <div className="space-y-3">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+            </div>
           </div>
         ) : stats ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <StatCard
-              title={CONTENT.cards.core}
-              icon={Package}
-              iconColor={coreStatus.installed ? 'success' : 'destructive'}
-              value={coreStatus.installed ? '✓ Ativo' : '✗ Erro'}
-              description={
-                coreStatus.installed
-                  ? `Versão ${coreStatus.version}`
-                  : coreStatus.error || 'Não encontrado'
-              }
-            />
+          <>
+            {/* KPI Strip minimalista */}
+            <section className="grid grid-cols-1 divide-y divide-border/60 border-y border-border/60 sm:grid-cols-2 lg:grid-cols-4 sm:divide-x sm:divide-y-0">
+              <Link
+                href="/admin/payments"
+                className="group space-y-1.5 py-5 transition-colors hover:bg-muted/20 sm:px-5 first:sm:pl-0"
+              >
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{CONTENT.kpis.revenue}</span>
+                  <CreditCard className="h-3.5 w-3.5 text-muted-foreground/70 transition-colors group-hover:text-primary" />
+                </div>
+                <p className="text-2xl font-semibold tracking-tight tabular-nums">
+                  {formatBRL(stats.payments.revenue)}
+                </p>
+                <p className="text-xs text-muted-foreground tabular-nums">
+                  {CONTENT.descriptions.monthPayments(stats.payments.thisMonth)}
+                </p>
+              </Link>
 
-            <StatCard
-              title={CONTENT.cards.products}
-              icon={Package}
-              iconColor="primary"
-              value={stats.products.total}
-              description={`${stats.products.active} produtos ativos`}
-              href="/admin/products"
-            />
+              <Link
+                href="/admin/orders"
+                className="group space-y-1.5 py-5 transition-colors hover:bg-muted/20 sm:px-5"
+              >
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{CONTENT.kpis.orders}</span>
+                  <ShoppingCart className="h-3.5 w-3.5 text-muted-foreground/70 transition-colors group-hover:text-primary" />
+                </div>
+                <p className="text-2xl font-semibold tracking-tight tabular-nums">
+                  {stats.orders.total}
+                </p>
+                <p className="text-xs text-muted-foreground tabular-nums">
+                  {CONTENT.descriptions.ordersSummary(stats.orders.pending, stats.orders.paid)}
+                </p>
+              </Link>
 
-            <StatCard
-              title={CONTENT.cards.revenue}
-              icon={CreditCard}
-              iconColor="success"
-              value={`R$ ${(stats.payments.revenue / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-              description={`${stats.payments.thisMonth} pagamentos este mês`}
-              href="/admin/payments"
-              variant="large"
-            />
+              <Link
+                href="/admin/products"
+                className="group space-y-1.5 py-5 transition-colors hover:bg-muted/20 sm:px-5"
+              >
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{CONTENT.kpis.products}</span>
+                  <Package className="h-3.5 w-3.5 text-muted-foreground/70 transition-colors group-hover:text-primary" />
+                </div>
+                <p className="text-2xl font-semibold tracking-tight tabular-nums">
+                  {stats.products.total}
+                </p>
+                <p className="text-xs text-muted-foreground tabular-nums">
+                  {CONTENT.descriptions.activeProducts(stats.products.active)}
+                </p>
+              </Link>
 
-            <StatCard
-              title={CONTENT.cards.orders}
-              icon={ShoppingCart}
-              iconColor="tertiary"
-              value={stats.orders.total}
-              description={`${stats.orders.pending} pendentes • ${stats.orders.paid} pagos`}
-              href="/admin/orders"
-            />
+              <Link
+                href="/admin/subscriptions"
+                className="group space-y-1.5 py-5 transition-colors hover:bg-muted/20 sm:px-5 last:sm:pr-0"
+              >
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{CONTENT.kpis.subscriptions}</span>
+                  <Activity className="h-3.5 w-3.5 text-muted-foreground/70 transition-colors group-hover:text-primary" />
+                </div>
+                <p className="text-2xl font-semibold tracking-tight tabular-nums">
+                  {stats.subscriptions.total}
+                </p>
+                <p className="text-xs text-muted-foreground tabular-nums">
+                  {CONTENT.descriptions.activeSubscriptions(stats.subscriptions.active)}
+                </p>
+              </Link>
+            </section>
 
-            <StatCard
-              title={CONTENT.cards.subscriptions}
-              icon={Activity}
-              iconColor="warning"
-              value={stats.subscriptions.total}
-              description={`${stats.subscriptions.active} assinaturas ativas`}
-              href="/admin/subscriptions"
-            />
+            {/* Operação & Sistema em lista limpa */}
+            <section className="space-y-3">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                {CONTENT.systemSection.title}
+              </h2>
+              <div className="divide-y divide-border/60 border-y border-border/60">
+                <div className="flex items-center justify-between gap-4 py-3.5">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Webhook className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">{CONTENT.systemSection.webhooksLabel}</p>
+                      <p className="text-xs text-muted-foreground tabular-nums">
+                        {CONTENT.descriptions.todayWebhooks(
+                          stats.webhooks.today,
+                          stats.webhooks.total
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5"
+                    render={<Link href="/admin/webhooks" />}
+                  >
+                    {CONTENT.actions.openLink}
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
 
-            <StatCard
-              title={CONTENT.cards.webhooks}
-              icon={Webhook}
-              iconColor="primary"
-              value={stats.webhooks.total}
-              description={`${stats.webhooks.today} recebidos hoje`}
-              href="/admin/webhooks"
-            />
-          </div>
+                <div className="flex items-center justify-between gap-4 py-3.5">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Package className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">{CONTENT.systemSection.coreLabel}</p>
+                      <p className="font-mono text-xs text-muted-foreground">
+                        {coreStatus.installed
+                          ? CONTENT.descriptions.coreVersion(coreStatus.version || '')
+                          : coreStatus.error || CONTENT.descriptions.coreNotFound}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge variant={coreStatus.installed ? 'default' : 'destructive'}>
+                    {coreStatus.installed
+                      ? CONTENT.systemSection.coreActive
+                      : CONTENT.systemSection.coreError}
+                  </Badge>
+                </div>
+              </div>
+            </section>
+          </>
         ) : null}
       </div>
     </AdminPageLayout>

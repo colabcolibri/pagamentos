@@ -39,15 +39,25 @@ function fillPromoDurationTemplate(template: string, percent: number, flowLabel?
 
 function usePromoTick(endsAtList: (string | null | undefined)[]) {
   const [, setTick] = useState(0)
-  const hasDeadline = endsAtList.some((e) => e != null && e !== '')
+  const maxDeadlineMs = endsAtList.reduce<number>((max, item) => {
+    if (!item) return max
+    const ms = Date.parse(item)
+    return Number.isFinite(ms) && ms > max ? ms : max
+  }, 0)
+  const hasActiveDeadline = maxDeadlineMs > Date.now()
 
   useEffect(() => {
-    if (!hasDeadline) return
-    const id = window.setInterval(() => setTick((t) => t + 1), 1000)
+    if (!hasActiveDeadline) return
+    const id = window.setInterval(() => {
+      if (Date.now() >= maxDeadlineMs) {
+        window.clearInterval(id)
+      }
+      setTick((t) => t + 1)
+    }, 1000)
     return () => window.clearInterval(id)
-  }, [hasDeadline])
+  }, [hasActiveDeadline, maxDeadlineMs])
 
-  return hasDeadline
+  return hasActiveDeadline
 }
 
 function CountdownText({

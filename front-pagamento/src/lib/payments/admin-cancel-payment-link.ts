@@ -7,7 +7,7 @@ export type AdminPaymentsClient = {
   schema: (name: string) => any
 }
 
-const STATUS_BLOCK_CANCEL = ['paid', 'approved'] as const
+const STATUS_BLOCK_CANCEL = ['paid', 'approved', 'refunded'] as const
 const STATUS_ALREADY_CANCELLED = ['cancelled'] as const
 
 export const ADMIN_PAYMENT_STATUS_BLOCK_CANCEL = STATUS_BLOCK_CANCEL

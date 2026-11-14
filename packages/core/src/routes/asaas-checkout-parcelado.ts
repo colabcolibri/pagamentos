@@ -23,8 +23,8 @@ import {
   checkoutDocument,
   findReusableAsaasPayment,
   insertCouponRedemption,
+  buildPendingSubscriptionRow,
   insertOrderAndPayment,
-  insertPendingSubscription,
   loadCheckoutAddons,
   loadCheckoutCoupon,
   touchCheckoutProfile,
@@ -250,21 +250,7 @@ export function createAsaasCheckoutParceladoHandler(options: AsaasCheckoutParcel
 
       const orderId = uuidv4();
       const orderType = priceData.recurring ? 'subscription' : 'one_time';
-      let subscriptionId: string | null = null;
-      if (priceData.recurring) {
-        const result = await insertPendingSubscription(
-          database,
-          userId,
-          priceData.id,
-          product.id,
-          product.ref,
-          uuidv4()
-        );
-        if (result.error || !result.subscriptionId) {
-          return NextResponse.json({ error: 'Erro ao criar assinatura' }, { status: 500 });
-        }
-        subscriptionId = result.subscriptionId;
-      }
+      const subscriptionId = priceData.recurring ? uuidv4() : null;
 
       const cpfCnpj =
         customer_info.person_type === 'juridica'
@@ -423,7 +409,10 @@ export function createAsaasCheckoutParceladoHandler(options: AsaasCheckoutParcel
               ...promoMeta,
               ...buildCouponOrderMetadata(resolvedCoupon),
             },
-          }
+          },
+          subscriptionId
+            ? buildPendingSubscriptionRow(userId, priceData.id, product.id, product.ref, subscriptionId)
+            : null
         );
       } catch (persistError) {
         logger.error('Erro ao salvar pedido e pagamento', persistError, { module: 'routes', action });

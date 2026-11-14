@@ -8,8 +8,10 @@ import { ptBR } from 'date-fns/locale'
 import { Activity, X } from 'lucide-react'
 
 import { AppDataTable } from '@/components/admin/app-data-table'
+import { Sheet } from '@/components/layout/ui/sheet'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { CopyableText } from '@/components/ui/clipboard-button'
 import { FilterCombobox, type FilterOption } from '@/components/ui/filter-combobox'
 import type { Subscription, SubscriptionStatus } from '@/hooks/admin/use-subscriptions'
 import { useSubscriptions } from '@/hooks/admin/use-subscriptions'
@@ -40,6 +42,24 @@ const CONTENT = {
     past_due: 'Atrasada',
     canceled: 'Cancelada',
     unpaid: 'Não paga',
+  },
+  sheet: {
+    title: 'Detalhes da assinatura',
+    subtitle: 'Informações completas da assinatura e ciclo de cobrança',
+    status: 'Status',
+    customer: 'Cliente',
+    email: 'E-mail',
+    product: 'Produto',
+    amount: 'Valor',
+    period: 'Período atual',
+    cancelAtEnd: 'Cancelar ao fim do período',
+    yes: 'Sim',
+    no: 'Não',
+    canceledAt: 'Cancelada em',
+    createdAt: 'Criada em',
+    subId: 'ID da assinatura',
+    userId: 'ID do usuário',
+    priceId: 'ID do preço',
   },
 } as const
 
@@ -79,6 +99,7 @@ function getStatusBadgeVariant(
 export function SubscriptionsTable() {
   const [statusFilter, setStatusFilter] = useState<SubscriptionStatus | undefined>()
   const [page, setPage] = useState(1)
+  const [selectedSub, setSelectedSub] = useState<Subscription | null>(null)
   const limit = 20
 
   const { data, isLoading, error } = useSubscriptions({
@@ -225,27 +246,129 @@ export function SubscriptionsTable() {
   )
 
   return (
-    <AppDataTable
-      ariaLabel="Lista de assinaturas"
-      columns={columns}
-      data={subscriptions}
-      isLoading={isLoading}
-      error={
-        error ? (error instanceof Error ? error.message : 'Erro ao carregar assinaturas') : null
-      }
-      errorTitle="Erro ao carregar assinaturas"
-      emptyIcon={<Activity className="size-10 text-muted-foreground/60" />}
-      emptyTitle={CONTENT.empty.title}
-      emptyDescription={CONTENT.empty.description}
-      toolbar={toolbar}
-      getRowId={(row) => row.id}
-      pagination={{
-        page,
-        pageSize: limit,
-        total,
-        totalPages,
-        onPageChange: setPage,
-      }}
-    />
+    <>
+      <AppDataTable
+        ariaLabel="Lista de assinaturas"
+        columns={columns}
+        data={subscriptions}
+        isLoading={isLoading}
+        error={
+          error ? (error instanceof Error ? error.message : 'Erro ao carregar assinaturas') : null
+        }
+        errorTitle="Erro ao carregar assinaturas"
+        emptyIcon={<Activity className="size-10 text-muted-foreground/60" />}
+        emptyTitle={CONTENT.empty.title}
+        emptyDescription={CONTENT.empty.description}
+        toolbar={toolbar}
+        onRowClick={(row) => setSelectedSub(row)}
+        getRowId={(row) => row.id}
+        pagination={{
+          page,
+          pageSize: limit,
+          total,
+          totalPages,
+          onPageChange: setPage,
+        }}
+      />
+
+      <Sheet
+        open={selectedSub !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedSub(null)
+        }}
+        title={CONTENT.sheet.title}
+        description={
+          selectedSub
+            ? selectedSub.prices?.products?.name || `#${selectedSub.id.slice(0, 8)}`
+            : CONTENT.sheet.subtitle
+        }
+        size="md"
+        hideFooter
+      >
+        {selectedSub && (
+          <dl className="divide-y divide-border/60 border-y border-border/60 text-sm">
+            <div className="flex items-center justify-between gap-4 py-3">
+              <dt className="text-muted-foreground">{CONTENT.sheet.status}</dt>
+              <dd>
+                <Badge variant={getStatusBadgeVariant(selectedSub.status)}>
+                  {CONTENT.status[selectedSub.status] || selectedSub.status}
+                </Badge>
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-4 py-3">
+              <dt className="text-muted-foreground">{CONTENT.sheet.customer}</dt>
+              <dd className="text-right font-medium">{selectedSub.profiles?.name || '—'}</dd>
+            </div>
+            {selectedSub.profiles?.email && (
+              <div className="flex items-center justify-between gap-4 py-3">
+                <dt className="text-muted-foreground">{CONTENT.sheet.email}</dt>
+                <dd className="text-right text-xs">{selectedSub.profiles.email}</dd>
+              </div>
+            )}
+            <div className="flex items-center justify-between gap-4 py-3">
+              <dt className="text-muted-foreground">{CONTENT.sheet.product}</dt>
+              <dd className="text-right font-medium">
+                {selectedSub.prices?.products?.name || '—'}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-4 py-3">
+              <dt className="text-muted-foreground">{CONTENT.sheet.amount}</dt>
+              <dd className="font-mono font-semibold tabular-nums">
+                {selectedSub.prices
+                  ? formatCurrency(selectedSub.prices.amount, selectedSub.prices.currency)
+                  : '—'}
+              </dd>
+            </div>
+            {selectedSub.current_period_start && selectedSub.current_period_end && (
+              <div className="flex items-center justify-between gap-4 py-3">
+                <dt className="text-muted-foreground">{CONTENT.sheet.period}</dt>
+                <dd className="tabular-nums text-xs">
+                  {formatDate(selectedSub.current_period_start)} –{' '}
+                  {formatDate(selectedSub.current_period_end)}
+                </dd>
+              </div>
+            )}
+            <div className="flex items-center justify-between gap-4 py-3">
+              <dt className="text-muted-foreground">{CONTENT.sheet.cancelAtEnd}</dt>
+              <dd>{selectedSub.cancel_at_period_end ? CONTENT.sheet.yes : CONTENT.sheet.no}</dd>
+            </div>
+            {selectedSub.canceled_at && (
+              <div className="flex items-center justify-between gap-4 py-3">
+                <dt className="text-muted-foreground">{CONTENT.sheet.canceledAt}</dt>
+                <dd className="tabular-nums text-xs">
+                  {new Date(selectedSub.canceled_at).toLocaleString('pt-BR')}
+                </dd>
+              </div>
+            )}
+            {selectedSub.created_at && (
+              <div className="flex items-center justify-between gap-4 py-3">
+                <dt className="text-muted-foreground">{CONTENT.sheet.createdAt}</dt>
+                <dd className="tabular-nums text-xs">
+                  {new Date(selectedSub.created_at).toLocaleString('pt-BR')}
+                </dd>
+              </div>
+            )}
+            <div className="flex items-center justify-between gap-4 py-3">
+              <dt className="text-muted-foreground">{CONTENT.sheet.subId}</dt>
+              <dd>
+                <CopyableText text={selectedSub.id} />
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-4 py-3">
+              <dt className="text-muted-foreground">{CONTENT.sheet.userId}</dt>
+              <dd>
+                <CopyableText text={selectedSub.user_id} />
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-4 py-3">
+              <dt className="text-muted-foreground">{CONTENT.sheet.priceId}</dt>
+              <dd>
+                <CopyableText text={selectedSub.price_id} />
+              </dd>
+            </div>
+          </dl>
+        )}
+      </Sheet>
+    </>
   )
 }

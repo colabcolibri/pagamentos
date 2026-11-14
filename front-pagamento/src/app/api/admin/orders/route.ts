@@ -52,8 +52,7 @@ export const GET = createApiHandler(
       offset,
     }
     void includeRelations
-    const orders = await listAdminOrders(filter)
-    const total = await countAdminOrders(filter)
+    const [orders, total] = await Promise.all([listAdminOrders(filter), countAdminOrders(filter)])
 
     return NextResponse.json({
       orders,

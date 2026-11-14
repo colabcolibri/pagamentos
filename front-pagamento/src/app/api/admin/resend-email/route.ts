@@ -36,10 +36,13 @@ export const POST = createApiHandler(
     }
 
     const database = createAdminPaymentsClient()
-    if (emailType === 'order_created') {
-      await sendOrderCreatedEmailFromOrder(database, orderId, undefined, undefined, true)
-    } else if (emailType === 'payment_confirmed') {
-      await sendPaymentConfirmedEmailFromOrder(database, orderId, undefined, true)
+    const result =
+      emailType === 'order_created'
+        ? await sendOrderCreatedEmailFromOrder(database, orderId, undefined, undefined, true)
+        : await sendPaymentConfirmedEmailFromOrder(database, orderId, undefined, true)
+
+    if (!result.success) {
+      return NextResponse.json({ error: result.error || 'Falha ao enviar e-mail' }, { status: 502 })
     }
 
     return NextResponse.json({

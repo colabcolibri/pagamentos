@@ -17,7 +17,7 @@ export const ADMIN_TOOLS: McpTool[] = [
     input: z.object({}),
     handler: async () => {
       const rows = await getPool().query(
-        `SELECT id, name, email, role, is_active FROM payments.admin_users ORDER BY created_at DESC`
+        `SELECT id, name, email, role, is_active FROM payments.admin_users ORDER BY created_at DESC LIMIT 100`
       )
       return rows.rows
     },

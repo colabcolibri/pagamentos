@@ -30,10 +30,18 @@ function ScrollArea({
         data-slot="scroll-area-viewport"
         className={cn(
           'size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+          orientation === 'vertical' && 'overflow-x-hidden!',
+          orientation === 'horizontal' && 'overflow-y-hidden!',
           viewportClassName
         )}
       >
-        <ScrollAreaPrimitive.Content className={cn('min-w-0', contentClassName)}>
+        <ScrollAreaPrimitive.Content
+          className={cn(
+            'min-w-0',
+            orientation === 'vertical' && 'w-full! max-w-full! min-w-0! overflow-x-hidden',
+            contentClassName
+          )}
+        >
           {children}
         </ScrollAreaPrimitive.Content>
       </ScrollAreaPrimitive.Viewport>

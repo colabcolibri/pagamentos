@@ -11,10 +11,6 @@ vi.mock('@/lib/auth', () => ({
   requireAdmin: vi.fn(),
 }))
 
-vi.mock('@/lib/payments/factories/service-factory', () => ({
-  createServices: vi.fn(),
-}))
-
 vi.mock('@/lib/payments/admin-cancel-payment-link', () => ({
   cancelAdminPaymentLink: vi.fn(),
   isAdminPaymentConfirmedForOrderCancel: vi.fn(
@@ -45,7 +41,6 @@ vi.mock('@/lib/db/pool', () => ({
 
 const { requireAdmin } = await import('@/lib/auth')
 const { createAdminPaymentsClient } = await import('@/lib/db/payments-query')
-const { createServices } = await import('@/lib/payments/factories/service-factory')
 const { cancelAdminPaymentLink } = await import('@/lib/payments/admin-cancel-payment-link')
 
 function buildRequest() {
@@ -56,7 +51,6 @@ describe('POST /api/admin/orders/[id]/cancel', () => {
   beforeEach(() => {
     vi.mocked(requireAdmin).mockReset()
     vi.mocked(createAdminPaymentsClient).mockReset()
-    vi.mocked(createServices).mockReset()
     vi.mocked(cancelAdminPaymentLink).mockReset()
   })
 
@@ -213,11 +207,6 @@ describe('POST /api/admin/orders/[id]/cancel', () => {
   })
 
   it('cancela pagamentos e atualiza pedido com sucesso', async () => {
-    const updateOrderStatus = vi.fn().mockResolvedValue({})
-    vi.mocked(createServices).mockReturnValue({
-      orderService: { updateOrderStatus },
-    } as any)
-
     vi.mocked(cancelAdminPaymentLink).mockResolvedValue({ ok: true })
 
     const mockOrdersChain = {

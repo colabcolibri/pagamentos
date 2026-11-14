@@ -17,8 +17,8 @@ import {
   checkoutDocument,
   findReusablePagarmePayment,
   insertCouponRedemption,
+  buildPendingSubscriptionRow,
   insertOrderAndPayment,
-  insertPendingSubscription,
   loadCheckoutCoupon,
   touchCheckoutProfile,
   type CheckoutDatabase,
@@ -197,25 +197,10 @@ export function createPagarmeCheckoutHandler(options: PagarmeCheckoutOptions) {
         });
       }
 
-      // 5. Gerar ID do pedido e criar subscription só quando for assinatura (recurring)
+      // 5. Gerar IDs do pedido e da assinatura (persistidos em transação única após criar o link)
       const orderId = uuidv4();
       const orderType = priceData.recurring ? 'subscription' : 'one_time';
-
-      let subscriptionId: string | null = null;
-      if (priceData.recurring) {
-        const result = await insertPendingSubscription(
-          database,
-          userId,
-          priceData.id,
-          product.id,
-          product.ref,
-          uuidv4()
-        );
-        if (result.error || !result.subscriptionId) {
-          return NextResponse.json({ error: 'Erro ao criar assinatura' }, { status: 500 });
-        }
-        subscriptionId = result.subscriptionId;
-      }
+      const subscriptionId = priceData.recurring ? uuidv4() : null;
 
       // 6. Criar link de pagamento no Pagar.me
       const secretKey = await readSetting(pagarmeSecretKey);
@@ -384,7 +369,10 @@ export function createPagarmeCheckoutHandler(options: PagarmeCheckoutOptions) {
             status: 'pending',
             expires_at: expiresAt.toISOString(),
             user_id: userId,
-          }
+          },
+          subscriptionId
+            ? buildPendingSubscriptionRow(userId, priceData.id, product.id, product.ref, subscriptionId)
+            : null
         );
       } catch (persistError) {
         logger.error('Erro ao salvar pedido e pagamento', persistError, {

@@ -91,6 +91,7 @@ export interface DialogProps extends VariantProps<typeof dialogVariants> {
   headerActions?: React.ReactNode
   hideFooter?: boolean
   height?: SizeHeight
+  scrollable?: boolean
 }
 
 export function Dialog({
@@ -123,6 +124,7 @@ export function Dialog({
   headerActions,
   hideFooter = false,
   height,
+  scrollable = true,
 }: DialogProps) {
   const DefaultIcon = iconMap[intent as DialogIntent]
 
@@ -217,26 +219,37 @@ export function Dialog({
           </div>
 
           <div className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col self-stretch overflow-hidden">
-            <div
-              className={cn(
-                'relative flex min-h-0 min-w-0 max-w-full flex-1 flex-row overflow-hidden',
-                '[&_[data-slot=scroll-area-viewport]>div]:!block',
-                '[&_[data-slot=scroll-area-viewport]>div]:min-h-0 [&_[data-slot=scroll-area-viewport]>div]:h-full',
-                '[&_[data-slot=scroll-area-viewport]>div]:min-w-0 [&_[data-slot=scroll-area-viewport]>div]:w-full',
-                '[&_[data-slot=scroll-area-scrollbar]]:border-l-0'
-              )}
-            >
-              <ScrollArea className="flex h-full min-h-0 min-w-0 w-full max-w-full flex-1 flex-row overscroll-contain">
-                <div
-                  className={cn(
-                    'min-w-0 wrap-break-word',
-                    contentPadding === null ? '' : contentPadding
-                  )}
-                >
-                  {children}
-                </div>
-              </ScrollArea>
-            </div>
+            {scrollable ? (
+              <div
+                className={cn(
+                  'relative flex min-h-0 min-w-0 max-w-full flex-1 flex-row overflow-hidden',
+                  '[&_[data-slot=scroll-area-viewport]>div]:!block',
+                  '[&_[data-slot=scroll-area-viewport]>div]:min-h-0 [&_[data-slot=scroll-area-viewport]>div]:h-full',
+                  '[&_[data-slot=scroll-area-viewport]>div]:min-w-0 [&_[data-slot=scroll-area-viewport]>div]:w-full',
+                  '[&_[data-slot=scroll-area-scrollbar]]:border-l-0'
+                )}
+              >
+                <ScrollArea className="flex h-full min-h-0 min-w-0 w-full max-w-full flex-1 flex-row overscroll-contain">
+                  <div
+                    className={cn(
+                      'min-w-0 wrap-break-word',
+                      contentPadding === null ? '' : contentPadding
+                    )}
+                  >
+                    {children}
+                  </div>
+                </ScrollArea>
+              </div>
+            ) : (
+              <div
+                className={cn(
+                  'flex min-h-0 min-w-0 w-full max-w-full flex-1 flex-col overflow-hidden wrap-break-word',
+                  contentPadding === null ? '' : contentPadding
+                )}
+              >
+                {children}
+              </div>
+            )}
 
             {!hideFooter && (onCancel || onConfirm || footerContent) && (
               <DialogFooter

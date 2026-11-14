@@ -117,19 +117,22 @@ export async function listAdminCoupons(input: {
     values.push(input.active)
     where = `WHERE c.active = $${values.length}`
   }
-  const total = await getPool().query<{ total: number }>(
-    `SELECT count(*)::int AS total FROM payments.discount_coupons c ${where}`,
-    values
-  )
+  const countValues = [...values]
   values.push(input.limit, input.offset)
-  const rows = await getPool().query<{ coupon: Record<string, unknown> }>(
-    `SELECT ${COUPON_JSON}
-     FROM payments.discount_coupons c
-     ${where}
-     ORDER BY c.created_at DESC
-     LIMIT $${values.length - 1} OFFSET $${values.length}`,
-    values
-  )
+  const [total, rows] = await Promise.all([
+    getPool().query<{ total: number }>(
+      `SELECT count(*)::int AS total FROM payments.discount_coupons c ${where}`,
+      countValues
+    ),
+    getPool().query<{ coupon: Record<string, unknown> }>(
+      `SELECT ${COUPON_JSON}
+       FROM payments.discount_coupons c
+       ${where}
+       ORDER BY c.created_at DESC
+       LIMIT $${values.length - 1} OFFSET $${values.length}`,
+      values
+    ),
+  ])
   return { coupons: rows.rows.map((row) => row.coupon), total: total.rows[0]?.total ?? 0 }
 }
 
@@ -219,23 +222,30 @@ export async function updateAdminCoupon(
 export async function syncCouponLinks(couponId: string, productIds: string[], priceIds: string[]) {
   const products = [...new Set(productIds)]
   const prices = [...new Set(priceIds)]
-  await getPool().query('DELETE FROM payments.discount_coupon_products WHERE coupon_id = $1', [
-    couponId,
+  const pool = getPool()
+  await Promise.all([
+    pool.query('DELETE FROM payments.discount_coupon_products WHERE coupon_id = $1', [couponId]),
+    pool.query('DELETE FROM payments.discount_coupon_prices WHERE coupon_id = $1', [couponId]),
   ])
-  await getPool().query('DELETE FROM payments.discount_coupon_prices WHERE coupon_id = $1', [
-    couponId,
-  ])
-  for (const productId of products) {
-    await getPool().query(
-      'INSERT INTO payments.discount_coupon_products (coupon_id, product_id) VALUES ($1, $2)',
-      [couponId, productId]
+  const inserts: Promise<unknown>[] = []
+  if (products.length > 0) {
+    inserts.push(
+      pool.query(
+        'INSERT INTO payments.discount_coupon_products (coupon_id, product_id) SELECT $1, UNNEST($2::uuid[])',
+        [couponId, products]
+      )
     )
   }
-  for (const priceId of prices) {
-    await getPool().query(
-      'INSERT INTO payments.discount_coupon_prices (coupon_id, price_id) VALUES ($1, $2)',
-      [couponId, priceId]
+  if (prices.length > 0) {
+    inserts.push(
+      pool.query(
+        'INSERT INTO payments.discount_coupon_prices (coupon_id, price_id) SELECT $1, UNNEST($2::uuid[])',
+        [couponId, prices]
+      )
     )
+  }
+  if (inserts.length > 0) {
+    await Promise.all(inserts)
   }
 }
 

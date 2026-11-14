@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useState } from 'react'
 
-import { Eye, EyeOff, Sparkles } from 'lucide-react'
+import { Eye, EyeOff, Mail, Package, ShieldCheck, Sparkles, Tag, Webhook } from 'lucide-react'
 
 import { Field, FieldDescription, FieldLabel } from '@/components/layout/ui/admin-field'
 import { AdminFormSection } from '@/components/layout/ui/admin-form-section'
 import { Dialog } from '@/components/layout/ui/dialog'
 import type { RefundPolicyContent } from '@/components/refund-policy/types'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -89,6 +90,8 @@ const CONTENT = {
   subtitle: 'Atualize as informações do produto',
   subtitleCreate: 'Preencha os dados do novo produto',
   tabs: {
+    ariaLabel: 'Seções do produto',
+    hasErrorsLabel: 'Possui erros',
     general: 'Geral',
     policy: 'Política de reembolso',
     prices: 'Preços',
@@ -290,12 +293,22 @@ export function EditProductDialog({
 
   const [activeTab, setActiveTab] = useState<TabId>('general')
 
-  const tabs: { id: TabId; label: string }[] = [
-    { id: 'general', label: CONTENT.tabs.general },
-    { id: 'policy', label: CONTENT.tabs.policy },
-    ...(!isCreate ? [{ id: 'prices' as TabId, label: CONTENT.tabs.prices }] : []),
-    { id: 'emails', label: CONTENT.tabs.emails },
-    { id: 'webhook', label: CONTENT.tabs.webhook },
+  const hasGeneralErrors = Boolean(errors.name || errors.ref || errors.submit)
+
+  const tabs: {
+    id: TabId
+    label: string
+    icon: React.ComponentType<{ className?: string }>
+    count?: number
+    hasError?: boolean
+  }[] = [
+    { id: 'general', label: CONTENT.tabs.general, icon: Package, hasError: hasGeneralErrors },
+    { id: 'policy', label: CONTENT.tabs.policy, icon: ShieldCheck },
+    ...(!isCreate
+      ? [{ id: 'prices' as TabId, label: CONTENT.tabs.prices, icon: Tag, count: prices.length }]
+      : []),
+    { id: 'emails', label: CONTENT.tabs.emails, icon: Mail },
+    { id: 'webhook', label: CONTENT.tabs.webhook, icon: Webhook },
   ]
 
   const handleTabChange = (id: TabId) => {
@@ -310,6 +323,7 @@ export function EditProductDialog({
       description={isCreate ? CONTENT.subtitleCreate : CONTENT.subtitle}
       size="full"
       height="screen"
+      scrollable={false}
       confirmText={isCreate ? CONTENT.buttons.create : CONTENT.buttons.save}
       cancelText={CONTENT.buttons.cancel}
       onConfirm={handleSave}
@@ -327,84 +341,134 @@ export function EditProductDialog({
         ) : undefined
       }
     >
-      <div className="flex h-full min-h-0 min-w-0">
-        {/* Sidebar de navegação vertical */}
-        <nav className="hidden sm:flex w-44 shrink-0 flex-col gap-1 border-r border-border bg-muted/20 p-3">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => handleTabChange(tab.id)}
-              className={cn(
-                'rounded-md px-3 py-2 text-left text-sm font-medium transition-colors',
-                activeTab === tab.id
-                  ? 'bg-background text-foreground shadow-sm border border-border/60'
-                  : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
+      <div className="flex h-full min-h-0 min-w-0 flex-col sm:flex-row">
+        {/* Sidebar de navegação vertical (desktop) */}
+        <nav
+          aria-label={CONTENT.tabs.ariaLabel}
+          className="hidden w-52 shrink-0 flex-col gap-1 border-r border-border bg-muted/20 p-3 sm:flex"
+        >
+          {tabs.map((tab) => {
+            const Icon = tab.icon
+            const isActive = activeTab === tab.id
+            return (
+              <Button
+                key={tab.id}
+                type="button"
+                variant={isActive ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => handleTabChange(tab.id)}
+                className={cn(
+                  'h-9 w-full justify-between gap-2 px-3 font-medium',
+                  isActive
+                    ? 'bg-background text-foreground shadow-xs border border-border/70 hover:bg-background'
+                    : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
+                )}
+              >
+                <span className="flex min-w-0 items-center gap-2.5">
+                  <Icon
+                    className={cn(
+                      'h-4 w-4 shrink-0',
+                      isActive ? 'text-primary' : 'text-muted-foreground'
+                    )}
+                  />
+                  <span className="truncate">{tab.label}</span>
+                </span>
+                <span className="flex shrink-0 items-center gap-1.5">
+                  {tab.hasError && (
+                    <span
+                      className="h-2 w-2 rounded-full bg-destructive"
+                      aria-label={CONTENT.tabs.hasErrorsLabel}
+                    />
+                  )}
+                  {typeof tab.count === 'number' && (
+                    <Badge
+                      variant={isActive ? 'secondary' : 'outline'}
+                      className="h-5 min-w-5 justify-center px-1.5 text-[11px] font-medium tabular-nums"
+                    >
+                      {tab.count}
+                    </Badge>
+                  )}
+                </span>
+              </Button>
+            )
+          })}
         </nav>
 
-        {/* Nav mobile: linha horizontal compacta */}
-        <div className="sm:hidden absolute top-0 left-0 right-0 z-10 flex gap-1 overflow-x-auto border-b border-border bg-background px-3 py-2 scrollbar-none">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => handleTabChange(tab.id)}
-              className={cn(
-                'shrink-0 rounded-md px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors',
-                activeTab === tab.id
-                  ? 'bg-foreground text-background'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        {/* Nav mobile: linha horizontal sem position absolute */}
+        <nav
+          aria-label={CONTENT.tabs.ariaLabel}
+          className="flex shrink-0 gap-1.5 overflow-x-auto border-b border-border bg-muted/20 px-4 py-2.5 sm:hidden"
+        >
+          {tabs.map((tab) => {
+            const Icon = tab.icon
+            const isActive = activeTab === tab.id
+            return (
+              <Button
+                key={tab.id}
+                type="button"
+                variant={isActive ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => handleTabChange(tab.id)}
+                className={cn(
+                  'h-8 shrink-0 gap-1.5 px-2.5 text-xs font-medium',
+                  isActive
+                    ? 'border border-border/70 bg-background text-foreground shadow-xs hover:bg-background'
+                    : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
+                )}
+              >
+                <Icon className="h-3.5 w-3.5 shrink-0" />
+                <span>{tab.label}</span>
+                {typeof tab.count === 'number' && (
+                  <span className="rounded bg-muted px-1 text-[10px] tabular-nums">
+                    {tab.count}
+                  </span>
+                )}
+              </Button>
+            )
+          })}
+        </nav>
 
-        {/* Área de conteúdo com scroll */}
-        <ScrollArea className="flex-1 min-w-0">
-          <div className="p-5 sm:p-6 space-y-5 min-w-0 sm:mt-0 mt-10">
+        {/* Área de conteúdo com ScrollArea único */}
+        <ScrollArea className="flex-1 min-h-0 min-w-0">
+          <div className="mx-auto w-full max-w-3xl space-y-6 p-5 sm:p-6 min-w-0">
             {activeTab === 'general' && (
               <>
                 <AdminFormSection
                   title={CONTENT.sections.productData.title}
                   description={CONTENT.sections.productData.description}
                 >
-                  <Field>
-                    <FieldLabel htmlFor="name">{CONTENT.fields.name} *</FieldLabel>
-                    <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) => {
-                        updateField('name', e.target.value)
-                        clearError('name')
-                      }}
-                      className={errors.name ? 'border-red-500' : ''}
-                      placeholder={CONTENT.fields.namePlaceholder}
-                    />
-                    {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
-                  </Field>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Field>
+                      <FieldLabel htmlFor="name">{CONTENT.fields.name} *</FieldLabel>
+                      <Input
+                        id="name"
+                        value={formData.name}
+                        onChange={(e) => {
+                          updateField('name', e.target.value)
+                          clearError('name')
+                        }}
+                        className={errors.name ? 'border-red-500' : ''}
+                        placeholder={CONTENT.fields.namePlaceholder}
+                      />
+                      {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
+                    </Field>
 
-                  <Field>
-                    <FieldLabel htmlFor="ref">{CONTENT.fields.ref} *</FieldLabel>
-                    <Input
-                      id="ref"
-                      value={formData.ref}
-                      onChange={(e) => {
-                        updateField('ref', e.target.value)
-                        clearError('ref')
-                      }}
-                      className={errors.ref ? 'border-red-500' : ''}
-                      placeholder={CONTENT.fields.refPlaceholder}
-                    />
-                    {errors.ref && <p className="text-sm text-red-500">{errors.ref}</p>}
-                    <FieldDescription>{CONTENT.fields.refHint}</FieldDescription>
-                  </Field>
+                    <Field>
+                      <FieldLabel htmlFor="ref">{CONTENT.fields.ref} *</FieldLabel>
+                      <Input
+                        id="ref"
+                        value={formData.ref}
+                        onChange={(e) => {
+                          updateField('ref', e.target.value)
+                          clearError('ref')
+                        }}
+                        className={errors.ref ? 'border-red-500 font-mono' : 'font-mono'}
+                        placeholder={CONTENT.fields.refPlaceholder}
+                      />
+                      {errors.ref && <p className="text-sm text-red-500">{errors.ref}</p>}
+                      <FieldDescription>{CONTENT.fields.refHint}</FieldDescription>
+                    </Field>
+                  </div>
 
                   <Field>
                     <FieldLabel htmlFor="description">{CONTENT.fields.description}</FieldLabel>
@@ -435,12 +499,12 @@ export function EditProductDialog({
                   title={CONTENT.sections.status.title}
                   description={CONTENT.sections.status.description}
                 >
-                  <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/15 p-3 sm:p-4 min-w-0 gap-4">
+                  <div className="flex items-center justify-between gap-4 border-y border-border/60 py-3.5 min-w-0">
                     <div className="space-y-0.5 min-w-0 flex-1">
-                      <FieldLabel htmlFor="active" className="text-sm sm:text-base">
+                      <FieldLabel htmlFor="active" className="text-sm font-medium">
                         {CONTENT.fields.active}
                       </FieldLabel>
-                      <p className="text-xs sm:text-sm text-muted-foreground wrap-break-word">
+                      <p className="text-xs text-muted-foreground wrap-break-word">
                         {CONTENT.fields.activeHint}
                       </p>
                     </div>
@@ -452,25 +516,27 @@ export function EditProductDialog({
                     />
                   </div>
 
-                  <div className="space-y-2 min-w-0">
+                  <div className="space-y-3 min-w-0 pt-1">
                     <FieldLabel className="text-sm">{CONTENT.fields.paymentMethods}</FieldLabel>
-                    <div className="rounded-lg border border-border/60 bg-muted/10 p-3 sm:p-4 space-y-3 min-w-0">
-                      {Object.entries(CONTENT.paymentMethods).map(([key, label]) => (
-                        <div key={key} className="flex items-center space-x-3 min-w-0">
-                          <Checkbox
-                            id={key}
-                            checked={formData.payment_methods.includes(key)}
-                            onCheckedChange={() => togglePaymentMethod(key)}
-                            className="shrink-0"
-                          />
-                          <FieldLabel
+                    <div className="flex flex-wrap gap-x-6 gap-y-3 min-w-0">
+                      {Object.entries(CONTENT.paymentMethods).map(([key, label]) => {
+                        const checked = formData.payment_methods.includes(key)
+                        return (
+                          <label
+                            key={key}
                             htmlFor={key}
-                            className="text-xs sm:text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer wrap-break-word min-w-0 flex-1"
+                            className="flex cursor-pointer items-center gap-2.5 text-sm min-w-0"
                           >
-                            {label}
-                          </FieldLabel>
-                        </div>
-                      ))}
+                            <Checkbox
+                              id={key}
+                              checked={checked}
+                              onCheckedChange={() => togglePaymentMethod(key)}
+                              className="shrink-0"
+                            />
+                            <span className="font-medium leading-tight">{label}</span>
+                          </label>
+                        )
+                      })}
                     </div>
                   </div>
                 </AdminFormSection>

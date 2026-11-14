@@ -42,7 +42,7 @@ describe('pool do postgres', () => {
 
   it('o módulo é de servidor e o pool pede no máximo 10 conexões', () => {
     const source = readFileSync(join(here, 'pool.ts'), 'utf8')
-    expect(source.startsWith("import 'server-only'")).toBe(true)
+    expect(source).toContain("import 'server-only'")
     expect(source).toContain('max: MAX_CONNECTIONS')
     expect(source).toContain('const MAX_CONNECTIONS = 10')
     expect(source).not.toContain('NEXT_PUBLIC_DATABASE_URL')

@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { createTtlCache } from '@/lib/cache/ttl-cache'
 import { serverEnv } from '@/lib/config/env'
 import { getPool } from '@/lib/db/pool'
 import { decryptStoredSecret } from '@/lib/security/secret-box'
@@ -169,7 +170,9 @@ export function publicGatewayAvailability(config: GatewayConfig): {
   }
 }
 
-export async function loadGatewayConfig(): Promise<GatewayConfig> {
+const GATEWAY_CONFIG_TTL_MS = 30_000
+
+async function fetchGatewayConfig(): Promise<GatewayConfig> {
   let row: SettingsRow | undefined
   try {
     const data = await getPool().query<SettingsRow>(
@@ -229,4 +232,14 @@ export async function loadGatewayConfig(): Promise<GatewayConfig> {
     productsByPriceApiKey: productsByPrice.value,
     productsByPriceApiKeySource: productsByPrice.source,
   }
+}
+
+const gatewayConfigCache = createTtlCache(GATEWAY_CONFIG_TTL_MS, fetchGatewayConfig)
+
+export function loadGatewayConfig(): Promise<GatewayConfig> {
+  return gatewayConfigCache.get()
+}
+
+export function invalidateGatewayConfigCache(): void {
+  gatewayConfigCache.invalidate()
 }

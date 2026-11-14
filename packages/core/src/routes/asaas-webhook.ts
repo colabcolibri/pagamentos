@@ -60,40 +60,26 @@ async function findPaymentRecord(
   const select =
     'id, status, order_id, subscription_id, asaas_payment_id, refunded_at, subscriptions(id, status, user_id, price_id)';
 
-  // (1) asaas_payment_id (payment.id = pay_xxx)
-  if (asaasPaymentId) {
+  const lookup = async (column: string, value: string | null) => {
+    if (!value) return null;
     const { data, error } = await supabase
       .schema('payments')
       .from('asaas_payments')
       .select(select)
-      .eq('asaas_payment_id', asaasPaymentId)
+      .eq(column, value)
       .maybeSingle();
-    if (!error && data) return { data: data as PaymentRecord, error: null };
-  }
+    return !error && data ? (data as PaymentRecord) : null;
+  };
 
-  // (2) asaas_installment_id (parcelado)
-  if (asaasInstallmentId) {
-    const { data, error } = await supabase
-      .schema('payments')
-      .from('asaas_payments')
-      .select(select)
-      .eq('asaas_installment_id', asaasInstallmentId)
-      .maybeSingle();
-    if (!error && data) return { data: data as PaymentRecord, error: null };
-  }
+  // Executa as buscas em paralelo mantendo a prioridade: payment_id > installment_id > checkout_id
+  const [byPaymentId, byInstallmentId, byCheckoutId] = await Promise.all([
+    lookup('asaas_payment_id', asaasPaymentId),
+    lookup('asaas_installment_id', asaasInstallmentId),
+    lookup('asaas_checkout_id', checkoutSession),
+  ]);
 
-  // (3) asaas_checkout_id = checkoutSession (Checkout API: PAYMENT_RECEIVED envia payment.checkoutSession)
-  if (checkoutSession) {
-    const { data, error } = await supabase
-      .schema('payments')
-      .from('asaas_payments')
-      .select(select)
-      .eq('asaas_checkout_id', checkoutSession)
-      .maybeSingle();
-    if (!error && data) return { data: data as PaymentRecord, error: null };
-  }
-
-  return { data: null, error: null };
+  const found = byPaymentId ?? byInstallmentId ?? byCheckoutId;
+  return { data: found, error: null };
 }
 
 /**
@@ -116,11 +102,12 @@ async function markCheckoutSessionTerminal(
     return;
   }
 
-  await supabase.schema('payments').from('asaas_payments').update({ status: terminalStatus }).eq('id', paymentRecord.id);
-
-  if (paymentRecord.order_id) {
-    await supabase.schema('payments').from('orders').update({ status: terminalStatus }).eq('id', paymentRecord.order_id);
-  }
+  await Promise.all([
+    supabase.schema('payments').from('asaas_payments').update({ status: terminalStatus }).eq('id', paymentRecord.id),
+    paymentRecord.order_id
+      ? supabase.schema('payments').from('orders').update({ status: terminalStatus }).eq('id', paymentRecord.order_id)
+      : Promise.resolve(),
+  ]);
 
   logger.info(`Checkout ${logPastParticiple} processado`, {
     module: 'routes',
@@ -137,6 +124,7 @@ async function markCheckoutSessionTerminal(
 async function processAsaasPayment(paymentData: Record<string, unknown>, supabase: any) {
   const asaasPaymentId = sanitizeAsaasId(paymentData.id);
   const asaasInstallmentId = sanitizeAsaasId(paymentData.installment);
+  const checkoutSession = sanitizeAsaasId(paymentData.checkoutSession);
   const billingType = paymentData.billingType as string;
 
   if (!asaasPaymentId) {
@@ -177,6 +165,17 @@ async function processAsaasPayment(paymentData: Record<string, unknown>, supabas
 
   // 2. Verificar se já foi processado (idempotência)
   if (paymentRecord.status === 'paid') {
+    if (
+      asaasPaymentId &&
+      asaasPaymentId !== checkoutSession &&
+      paymentRecord.asaas_payment_id !== asaasPaymentId
+    ) {
+      await supabase
+        .schema('payments')
+        .from('asaas_payments')
+        .update({ asaas_payment_id: asaasPaymentId })
+        .eq('id', paymentRecord.id);
+    }
     logger.info('Pagamento já processado anteriormente', {
       module: 'routes',
       action: 'asaas-webhook',
@@ -255,8 +254,12 @@ async function processAsaasPayment(paymentData: Record<string, unknown>, supabas
     paymentId: paymentRecord.id,
   });
 
-  // 4.1. Atualizar asaas_payment_id para payment.id (para PAYMENT_REFUNDED e outros webhooks encontrarem corretamente)
-  if (asaasPaymentId && paymentRecord.asaas_payment_id !== asaasPaymentId) {
+  // 4.1. Atualizar asaas_payment_id para payment.id (sem poluir com checkoutSession)
+  if (
+    asaasPaymentId &&
+    asaasPaymentId !== checkoutSession &&
+    paymentRecord.asaas_payment_id !== asaasPaymentId
+  ) {
     await supabase
       .schema('payments')
       .from('asaas_payments')

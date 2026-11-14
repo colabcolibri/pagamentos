@@ -9,8 +9,10 @@ import { ptBR } from 'date-fns/locale'
 import { Ban, CreditCard, Trash2 } from 'lucide-react'
 
 import { AppDataTable } from '@/components/admin/app-data-table'
+import { Sheet } from '@/components/layout/ui/sheet'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { CopyableText } from '@/components/ui/clipboard-button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { usePayments } from '@/hooks/admin/use-payments'
 
@@ -25,6 +27,45 @@ function canDeletePayment(status: string) {
 }
 
 const CONTENT = {
+  columns: {
+    customer: 'Cliente',
+    product: 'Produto',
+    amount: 'Valor',
+    methodGateway: 'Método',
+    status: 'Status',
+    date: 'Data',
+    actions: 'Ações',
+  },
+  fallbacks: {
+    noName: 'Sem nome',
+    noProduct: 'Pedido avulso',
+    installments: (n: number) => `${n}x`,
+    paidPrefix: 'Pago',
+    createdPrefix: 'Criado',
+    cancelAria: (id: string) => `Cancelar link ${id}`,
+    deleteAria: (id: string) => `Excluir pagamento ${id}`,
+  },
+  sheet: {
+    title: 'Detalhes do pagamento',
+    subtitle: 'Informações completas do pagamento e gateway',
+    customer: 'Cliente',
+    email: 'E-mail',
+    product: 'Produto',
+    amount: 'Valor',
+    installments: 'Parcelamento',
+    method: 'Método',
+    gateway: 'Gateway',
+    status: 'Status',
+    paymentId: 'ID do pagamento',
+    orderId: 'ID do pedido',
+    userId: 'ID do usuário',
+    gatewayLinkId: 'ID no gateway',
+    paymentUrl: 'Link de pagamento',
+    boletoUrl: 'URL do boleto',
+    createdAt: 'Criado em',
+    paidAt: 'Pago em',
+    openLink: 'Abrir link',
+  },
   status: {
     pending: 'Pendente',
     paid: 'Pago',
@@ -125,6 +166,7 @@ export function PaymentsTable() {
     null
   )
   const [cancelError, setCancelError] = useState<string | null>(null)
+  const [selectedPayment, setSelectedPayment] = useState<PaymentRow | null>(null)
 
   const handleConfirmCancelLink = async () => {
     if (!cancelling) return
@@ -161,118 +203,123 @@ export function PaymentsTable() {
   const columns = useMemo<ColumnDef<PaymentRow>[]>(
     () => [
       {
-        accessorKey: 'id',
-        header: 'ID',
-        meta: { cellClassName: 'whitespace-nowrap' },
-        cell: ({ row }) => (
-          <code className="text-xs bg-muted px-2 py-1 rounded font-mono">
-            {row.original.id.slice(0, 8)}...
-          </code>
-        ),
+        id: 'customer',
+        header: CONTENT.columns.customer,
+        cell: ({ row }) => {
+          const customer = row.original.customer
+          return (
+            <div className="flex min-w-0 max-w-[210px] flex-col">
+              <span className="truncate text-sm font-medium text-foreground">
+                {customer?.name || CONTENT.fallbacks.noName}
+              </span>
+              <span className="truncate text-xs text-muted-foreground">
+                {customer?.email || row.original.user_id.slice(0, 8)}
+              </span>
+            </div>
+          )
+        },
       },
       {
-        accessorKey: 'user_id',
-        header: 'Usuário',
-        meta: { cellClassName: 'whitespace-nowrap' },
-        cell: ({ row }) => (
-          <code className="text-xs text-muted-foreground font-mono">
-            {row.original.user_id.slice(0, 8)}...
-          </code>
-        ),
-      },
-      {
-        accessorKey: 'order_id',
-        header: 'Pedido',
-        meta: { cellClassName: 'whitespace-nowrap' },
-        cell: ({ row }) =>
-          row.original.order_id ? (
-            <code className="text-xs bg-muted px-2 py-1 rounded font-mono">
-              {row.original.order_id.slice(0, 8)}...
-            </code>
-          ) : (
-            <span className="text-xs text-muted-foreground">—</span>
-          ),
+        id: 'product',
+        header: CONTENT.columns.product,
+        cell: ({ row }) => {
+          const product = row.original.product
+          const shortOrder = row.original.order_id?.slice(0, 8)
+          return (
+            <div className="flex min-w-0 max-w-[210px] flex-col">
+              <span className="truncate text-sm font-medium text-foreground">
+                {product?.name || CONTENT.fallbacks.noProduct}
+              </span>
+              <code className="truncate font-mono text-[11px] text-muted-foreground">
+                {shortOrder ? `#${shortOrder}` : `#${row.original.id.slice(0, 8)}`}
+              </code>
+            </div>
+          )
+        },
       },
       {
         accessorKey: 'amount_cents',
-        header: 'Valor',
+        header: CONTENT.columns.amount,
         meta: {
           headerClassName: 'text-right',
-          cellClassName: 'text-right font-mono font-semibold tabular-nums whitespace-nowrap',
+          cellClassName: 'text-right whitespace-nowrap',
         },
-        cell: ({ row }) => formatPrice(row.original.amount_cents),
+        cell: ({ row }) => (
+          <div className="flex flex-col items-end">
+            <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+              {formatPrice(row.original.amount_cents)}
+            </span>
+            {row.original.installments && row.original.installments > 1 ? (
+              <span className="text-[11px] text-muted-foreground tabular-nums">
+                {CONTENT.fallbacks.installments(row.original.installments)}
+              </span>
+            ) : null}
+          </div>
+        ),
       },
       {
         accessorKey: 'payment_method',
-        header: 'Método',
+        header: CONTENT.columns.methodGateway,
         meta: { cellClassName: 'whitespace-nowrap' },
-        cell: ({ row }) =>
-          row.original.payment_method ? (
-            <Badge variant="outline" className="text-xs">
-              {CONTENT.method[row.original.payment_method as keyof typeof CONTENT.method] ||
-                row.original.payment_method}
-            </Badge>
-          ) : (
-            <span className="text-xs text-muted-foreground">—</span>
-          ),
+        cell: ({ row }) => {
+          const methodLabel = row.original.payment_method
+            ? CONTENT.method[row.original.payment_method as keyof typeof CONTENT.method] ||
+              row.original.payment_method
+            : '—'
+          return (
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-foreground">{methodLabel}</span>
+              <span className="text-[11px] text-muted-foreground">
+                {CONTENT.gateway[row.original.payment_gateway]}
+              </span>
+            </div>
+          )
+        },
       },
       {
         accessorKey: 'status',
-        header: 'Status',
+        header: CONTENT.columns.status,
         meta: { cellClassName: 'whitespace-nowrap' },
         cell: ({ row }) => getStatusBadge(row.original.status),
       },
       {
-        accessorKey: 'payment_gateway',
-        header: 'Gateway',
-        meta: { cellClassName: 'whitespace-nowrap' },
-        cell: ({ row }) => (
-          <Badge variant="secondary" className="text-xs">
-            {CONTENT.gateway[row.original.payment_gateway]}
-          </Badge>
-        ),
-      },
-      {
-        accessorKey: 'paid_at',
-        header: 'Pago em',
+        id: 'date',
+        header: CONTENT.columns.date,
         meta: {
           headerClassName: 'text-right',
-          cellClassName: 'text-right text-sm text-muted-foreground tabular-nums whitespace-nowrap',
+          cellClassName: 'text-right whitespace-nowrap tabular-nums',
         },
-        cell: ({ row }) =>
-          row.original.paid_at
-            ? formatDistanceToNow(new Date(row.original.paid_at), {
-                addSuffix: true,
-                locale: ptBR,
-              })
-            : '—',
-      },
-      {
-        accessorKey: 'created_at',
-        header: 'Criado',
-        meta: {
-          headerClassName: 'text-right',
-          cellClassName: 'text-right text-sm text-muted-foreground tabular-nums whitespace-nowrap',
+        cell: ({ row }) => {
+          const date = row.original.paid_at || row.original.created_at
+          const prefix = row.original.paid_at
+            ? CONTENT.fallbacks.paidPrefix
+            : CONTENT.fallbacks.createdPrefix
+          return (
+            <div className="flex flex-col items-end">
+              <span className="text-xs text-foreground">
+                {date
+                  ? formatDistanceToNow(new Date(date), { addSuffix: true, locale: ptBR })
+                  : '—'}
+              </span>
+              <span className="text-[11px] text-muted-foreground">{prefix}</span>
+            </div>
+          )
         },
-        cell: ({ row }) =>
-          row.original.created_at
-            ? formatDistanceToNow(new Date(row.original.created_at), {
-                addSuffix: true,
-                locale: ptBR,
-              })
-            : '—',
       },
       {
         id: 'actions',
-        header: 'Ações',
+        header: CONTENT.columns.actions,
         meta: {
-          headerClassName: 'text-right w-24',
+          headerClassName: 'text-right w-20',
           cellClassName: 'text-right whitespace-nowrap',
         },
         cell: ({ row }) => {
           const payment = row.original
           return (
-            <div className="flex items-center justify-end gap-1">
+            <div
+              className="flex items-center justify-end gap-1"
+              onClick={(e) => e.stopPropagation()}
+            >
               {canCancelLink(payment.status) && (
                 <Button
                   variant="ghost"
@@ -284,7 +331,7 @@ export function PaymentsTable() {
                       gateway: payment.payment_gateway,
                     })
                   }
-                  aria-label={`Cancelar link ${payment.id.slice(0, 8)}`}
+                  aria-label={CONTENT.fallbacks.cancelAria(payment.id.slice(0, 8))}
                   title={CONTENT.cancelLink.button}
                 >
                   <Ban className="size-4" />
@@ -301,7 +348,7 @@ export function PaymentsTable() {
                       gateway: payment.payment_gateway,
                     })
                   }
-                  aria-label={`Excluir pagamento ${payment.id.slice(0, 8)}`}
+                  aria-label={CONTENT.fallbacks.deleteAria(payment.id.slice(0, 8))}
                   title={CONTENT.delete.button}
                 >
                   <Trash2 className="size-4" />
@@ -330,8 +377,182 @@ export function PaymentsTable() {
         emptyIcon={<CreditCard className="size-10 text-muted-foreground/60" />}
         emptyTitle={CONTENT.empty.title}
         emptyDescription={CONTENT.empty.description}
+        onRowClick={(row) => setSelectedPayment(row)}
         getRowId={(row) => row.id}
       />
+
+      <Sheet
+        open={selectedPayment !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedPayment(null)
+        }}
+        title={CONTENT.sheet.title}
+        description={
+          selectedPayment
+            ? `#${selectedPayment.id.slice(0, 8)} · ${CONTENT.gateway[selectedPayment.payment_gateway]}`
+            : CONTENT.sheet.subtitle
+        }
+        size="md"
+        hideFooter={
+          !selectedPayment ||
+          (!canCancelLink(selectedPayment.status) && !canDeletePayment(selectedPayment.status))
+        }
+        footerContent={
+          selectedPayment ? (
+            <div className="flex w-full items-center justify-end gap-2">
+              {canCancelLink(selectedPayment.status) && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="text-warning"
+                  onClick={() => {
+                    const target = selectedPayment
+                    setSelectedPayment(null)
+                    setCancelling({ id: target.id, gateway: target.payment_gateway })
+                  }}
+                >
+                  <Ban className="mr-1.5 size-3.5" />
+                  {CONTENT.cancelLink.button}
+                </Button>
+              )}
+              {canDeletePayment(selectedPayment.status) && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => {
+                    const target = selectedPayment
+                    setSelectedPayment(null)
+                    setDeleting({ id: target.id, gateway: target.payment_gateway })
+                  }}
+                >
+                  <Trash2 className="mr-1.5 size-3.5" />
+                  {CONTENT.delete.button}
+                </Button>
+              )}
+            </div>
+          ) : null
+        }
+      >
+        {selectedPayment && (
+          <dl className="divide-y divide-border/60 border-y border-border/60 text-sm">
+            <div className="flex items-center justify-between gap-4 py-3">
+              <dt className="text-muted-foreground">{CONTENT.sheet.status}</dt>
+              <dd>{getStatusBadge(selectedPayment.status)}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-4 py-3">
+              <dt className="text-muted-foreground">{CONTENT.sheet.amount}</dt>
+              <dd className="font-mono font-semibold tabular-nums">
+                {formatPrice(selectedPayment.amount_cents)}
+                {selectedPayment.installments && selectedPayment.installments > 1
+                  ? ` (${CONTENT.fallbacks.installments(selectedPayment.installments)})`
+                  : ''}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-4 py-3">
+              <dt className="text-muted-foreground">{CONTENT.sheet.customer}</dt>
+              <dd className="text-right font-medium">
+                {selectedPayment.customer?.name || CONTENT.fallbacks.noName}
+              </dd>
+            </div>
+            {selectedPayment.customer?.email && (
+              <div className="flex items-center justify-between gap-4 py-3">
+                <dt className="text-muted-foreground">{CONTENT.sheet.email}</dt>
+                <dd className="text-right text-xs">{selectedPayment.customer.email}</dd>
+              </div>
+            )}
+            <div className="flex items-center justify-between gap-4 py-3">
+              <dt className="text-muted-foreground">{CONTENT.sheet.product}</dt>
+              <dd className="text-right font-medium">
+                {selectedPayment.product?.name || CONTENT.fallbacks.noProduct}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-4 py-3">
+              <dt className="text-muted-foreground">{CONTENT.sheet.method}</dt>
+              <dd>
+                {selectedPayment.payment_method
+                  ? CONTENT.method[selectedPayment.payment_method as keyof typeof CONTENT.method] ||
+                    selectedPayment.payment_method
+                  : '—'}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-4 py-3">
+              <dt className="text-muted-foreground">{CONTENT.sheet.gateway}</dt>
+              <dd>{CONTENT.gateway[selectedPayment.payment_gateway]}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-4 py-3">
+              <dt className="text-muted-foreground">{CONTENT.sheet.createdAt}</dt>
+              <dd className="tabular-nums text-xs">
+                {new Date(selectedPayment.created_at).toLocaleString('pt-BR')}
+              </dd>
+            </div>
+            {selectedPayment.paid_at && (
+              <div className="flex items-center justify-between gap-4 py-3">
+                <dt className="text-muted-foreground">{CONTENT.sheet.paidAt}</dt>
+                <dd className="tabular-nums text-xs">
+                  {new Date(selectedPayment.paid_at).toLocaleString('pt-BR')}
+                </dd>
+              </div>
+            )}
+            <div className="flex items-center justify-between gap-4 py-3">
+              <dt className="text-muted-foreground">{CONTENT.sheet.paymentId}</dt>
+              <dd>
+                <CopyableText text={selectedPayment.id} />
+              </dd>
+            </div>
+            {selectedPayment.order_id && (
+              <div className="flex items-center justify-between gap-4 py-3">
+                <dt className="text-muted-foreground">{CONTENT.sheet.orderId}</dt>
+                <dd>
+                  <CopyableText text={selectedPayment.order_id} />
+                </dd>
+              </div>
+            )}
+            <div className="flex items-center justify-between gap-4 py-3">
+              <dt className="text-muted-foreground">{CONTENT.sheet.userId}</dt>
+              <dd>
+                <CopyableText text={selectedPayment.user_id} />
+              </dd>
+            </div>
+            {(selectedPayment.payment_link_id || selectedPayment.asaas_payment_id) && (
+              <div className="flex items-center justify-between gap-4 py-3">
+                <dt className="text-muted-foreground">{CONTENT.sheet.gatewayLinkId}</dt>
+                <dd>
+                  <CopyableText
+                    text={selectedPayment.payment_link_id || selectedPayment.asaas_payment_id || ''}
+                  />
+                </dd>
+              </div>
+            )}
+            {(selectedPayment.payment_link_url || selectedPayment.boleto_url) && (
+              <div className="flex items-center justify-between gap-4 py-3">
+                <dt className="text-muted-foreground">
+                  {selectedPayment.payment_link_url
+                    ? CONTENT.sheet.paymentUrl
+                    : CONTENT.sheet.boletoUrl}
+                </dt>
+                <dd>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    render={
+                      <a
+                        href={selectedPayment.payment_link_url || selectedPayment.boleto_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      />
+                    }
+                  >
+                    {CONTENT.sheet.openLink}
+                  </Button>
+                </dd>
+              </div>
+            )}
+          </dl>
+        )}
+      </Sheet>
 
       <ConfirmDialog
         open={cancelling !== null}

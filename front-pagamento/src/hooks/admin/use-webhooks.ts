@@ -56,10 +56,12 @@ async function fetchWebhooks(params: WebhooksParams = {}): Promise<WebhooksResul
 }
 
 export function useWebhooks(params: WebhooksParams = {}) {
+  const isFirstUnfilteredPage =
+    (params.page ?? 1) === 1 && !params.provider && !params.status && !params.eventType
   return useQuery({
     queryKey: ['admin', 'webhooks', params],
     queryFn: () => fetchWebhooks(params),
     staleTime: 30 * 1000,
-    refetchInterval: 30 * 1000,
+    refetchInterval: isFirstUnfilteredPage ? 30 * 1000 : false,
   })
 }

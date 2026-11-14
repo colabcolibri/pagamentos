@@ -105,8 +105,14 @@ O guia `docs/guides/quitou/02-arquitetura.md` ainda diz que o core mora em `../p
 
 | File | Topic | Status |
 | ---- | ----- | ------ |
-| `docs/architecture/` | ainda vazio. Detalhe só se `05` precisar fatiar | planned |
+| `docs/architecture/diagrams/quitou-payment-flow.md` | Fluxo completo de pagamento (criação, checkout, webhook, pós-venda) | active |
 | `docs/guides/quitou/02-arquitetura.md` | narrativa anterior | legado, não é o gate |
+
+## Architecture diagrams
+
+| File | Kind | Scope |
+| ---- | ---- | ----- |
+| `architecture/diagrams/quitou-payment-flow.md` | flow | Ciclo completo: criação, checkout transacional, webhook e conciliação manual |
 
 ## Cross-cutting concerns
 

@@ -106,7 +106,7 @@ async function processPayment(payload: WebhookPayload, supabase: any) {
       paid_at: paidAt,
     })
     .eq('payment_link_id', paymentLinkId)
-    .eq('status', 'pending')
+    .in('status', ['pending', 'pix_generated', 'boleto_generated'])
     .select('id')
     .maybeSingle();
 
@@ -712,7 +712,10 @@ export function createPagarmeWebhookHandler(options: PagarmeWebhookOptions): Rou
         logger.info('Order.created processado', {
           module: 'routes',
           action: 'pagarme-webhook',
-          result,
+          message: result.message,
+          orderId: result.order_id,
+          paymentId: result.payment?.id,
+          paymentMethod: result.paymentMethod,
         });
         
         // Callback de order.created (envio de email PIX/Boleto, passar webhook_event_id)

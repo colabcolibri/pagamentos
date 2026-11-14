@@ -95,7 +95,7 @@ export async function sendPaymentConfirmedEmailFromOrder(
   orderId: string,
   webhookEventId?: string,
   isManualResend?: boolean
-): Promise<void> {
+): Promise<{ success: boolean; error?: string }> {
   const logger = getLogger()
   try {
     logger.info('Preparando envio de email de pagamento confirmado para order', { orderId })
@@ -133,7 +133,7 @@ export async function sendPaymentConfirmedEmailFromOrder(
 
     if (orderError || !order) {
       logger.error('Erro ao buscar order para email', orderError)
-      return
+      return { success: false, error: 'Pedido não encontrado' }
     }
 
     // Buscar user no profiles
@@ -146,7 +146,7 @@ export async function sendPaymentConfirmedEmailFromOrder(
 
     if (userError || !user) {
       logger.error('Erro ao buscar user para email', userError)
-      return
+      return { success: false, error: 'Cliente do pedido não encontrado' }
     }
 
     const price = order.prices
@@ -158,7 +158,7 @@ export async function sendPaymentConfirmedEmailFromOrder(
         hasProduct: !!product,
         hasPrice: !!price,
       })
-      return
+      return { success: false, error: 'Dados incompletos (email, produto ou preço)' }
     }
 
     const priceEmailAddon = parsePriceEmailAddon(price.email_addon as Json | null)
@@ -169,7 +169,7 @@ export async function sendPaymentConfirmedEmailFromOrder(
       order.id,
       logger
     )
-    if (priceDisplay === null) return
+    if (priceDisplay === null) return { success: false, error: 'Valor do pedido inválido' }
 
     // Formatar opções de pagamento (se recorrente)
     let paymentOptions: string | undefined
@@ -228,9 +228,23 @@ export async function sendPaymentConfirmedEmailFromOrder(
     if (!platformResult.success && !skipNoRemetente) {
       logger.error('Falha ao enviar aviso interno de venda', platformResult.error)
     }
+
+    return emailResult.success
+      ? { success: true }
+      : {
+          success: false,
+          error:
+            typeof emailResult.error === 'string'
+              ? emailResult.error
+              : 'Falha ao enviar e-mail de pagamento confirmado',
+        }
   } catch (error) {
     logger.error('Erro ao enviar email de pagamento confirmado', error)
     // Não re-throw para não quebrar o webhook
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao enviar e-mail',
+    }
   }
 }
 
@@ -336,7 +350,7 @@ export async function sendOrderCreatedEmailFromOrder(
   },
   webhookEventId?: string,
   isManualResend?: boolean
-): Promise<void> {
+): Promise<{ success: boolean; error?: string }> {
   const logger = getLogger()
   try {
     logger.info('Preparando envio de email de pedido criado para order', { orderId })
@@ -376,7 +390,7 @@ export async function sendOrderCreatedEmailFromOrder(
 
     if (orderError || !order) {
       logger.error('Erro ao buscar order para email', orderError)
-      return
+      return { success: false, error: 'Pedido não encontrado' }
     }
 
     // Buscar user no profiles
@@ -389,7 +403,7 @@ export async function sendOrderCreatedEmailFromOrder(
 
     if (userError || !user) {
       logger.error('Erro ao buscar user para email', userError)
-      return
+      return { success: false, error: 'Cliente do pedido não encontrado' }
     }
 
     const price = order.prices
@@ -401,7 +415,7 @@ export async function sendOrderCreatedEmailFromOrder(
         hasProduct: !!product,
         hasPrice: !!price,
       })
-      return
+      return { success: false, error: 'Dados incompletos (email, produto ou preço)' }
     }
 
     const priceEmailAddon = parsePriceEmailAddon(price.email_addon as Json | null)
@@ -412,7 +426,7 @@ export async function sendOrderCreatedEmailFromOrder(
       order.id,
       logger
     )
-    if (priceDisplay === null) return
+    if (priceDisplay === null) return { success: false, error: 'Valor do pedido inválido' }
 
     // Buscar payment_link_url e billing_type do metadata do order
     const metadata = (order.metadata as Record<string, unknown>) || {}
@@ -449,11 +463,23 @@ export async function sendOrderCreatedEmailFromOrder(
 
     if (emailResult.success) {
       logger.info('Email de pedido criado enviado', { orderId: order.id })
+      return { success: true }
     } else {
       logger.error('Falha ao enviar email de pedido criado', emailResult.error)
+      return {
+        success: false,
+        error:
+          typeof emailResult.error === 'string'
+            ? emailResult.error
+            : 'Falha ao enviar e-mail de pedido criado',
+      }
     }
   } catch (error) {
     logger.error('Erro ao enviar email de pedido criado', error)
     // Não re-throw para não quebrar o webhook
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao enviar e-mail',
+    }
   }
 }
