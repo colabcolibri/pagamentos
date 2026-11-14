@@ -129,14 +129,18 @@ export function RevenueTrendChart({ series }: { series: DashboardSeriesPoint[] }
                 cursor={false}
                 content={
                   <ChartTooltipContent
+                    hideLabel
                     indicator="line"
-                    formatter={(value, _name, item) => {
+                    formatter={(_value, _name, item) => {
                       const payload = item.payload as DashboardSeriesPoint & {
                         revenueReais: number
                       }
                       return (
-                        <div className="flex flex-col gap-0.5">
-                          <span className="font-medium tabular-nums">
+                        <div className="flex flex-col gap-1">
+                          <span className="font-medium text-foreground tabular-nums">
+                            {payload.label}
+                          </span>
+                          <span className="font-semibold text-foreground tabular-nums">
                             {formatBRL(payload.revenueCents)}
                           </span>
                           <span className="text-[11px] text-muted-foreground tabular-nums">

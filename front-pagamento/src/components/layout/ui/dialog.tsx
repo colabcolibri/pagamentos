@@ -219,10 +219,13 @@ export function Dialog({
                   '[&_[data-slot=scroll-area-scrollbar]]:border-l-0'
                 )}
               >
-                <ScrollArea className="flex h-full min-h-0 min-w-0 w-full max-w-full flex-1 flex-row overscroll-contain">
+                <ScrollArea
+                  orientation="vertical"
+                  className="flex h-full min-h-0 min-w-0 w-full max-w-full flex-1 flex-row overscroll-contain"
+                >
                   <div
                     className={cn(
-                      'min-w-0 wrap-break-word',
+                      'w-full min-w-0 max-w-full wrap-break-word',
                       contentPadding === null ? '' : contentPadding
                     )}
                   >

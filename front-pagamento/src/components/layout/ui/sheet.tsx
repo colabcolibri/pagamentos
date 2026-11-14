@@ -101,7 +101,7 @@ export function Sheet({
         </SheetHeader>
 
         {scrollable ? (
-          <ScrollArea className="min-h-0 flex-1">
+          <ScrollArea orientation="vertical" className="min-h-0 flex-1">
             <div className={cn('min-w-0', contentPadding === null ? '' : contentPadding)}>
               {children}
             </div>
