@@ -1,74 +1,41 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import Link from 'next/link'
 
 import {
   AlertCircle,
   CheckCircle2,
-  Copy,
   ExternalLink,
-  Loader2,
   RefreshCw,
   Rocket,
   SlidersHorizontal,
 } from 'lucide-react'
-import { toast } from 'sonner'
 
 import { AdminPageLayout } from '@/components/admin/admin-page-layout'
-import { BrandSettingsCard } from '@/components/admin/brand-settings-card'
-import { EmailSmtpSettingsCard } from '@/components/admin/email-smtp-settings-card'
-import { GatewaySettingsCard } from '@/components/admin/gateway-settings-card'
+import { type SetupModalStepId, SetupStepModal } from '@/components/admin/setup-step-modal'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Textarea } from '@/components/ui/textarea'
-import { usePlatformSettings } from '@/hooks/admin/use-platform-settings'
-import { type SetupStepStatus, useSetupStatus } from '@/hooks/admin/use-setup-status'
-
-type ModalStepId = Exclude<SetupStepStatus['id'], 'catalog'>
+import { useSetupStatus } from '@/hooks/admin/use-setup-status'
 
 export default function AdminSetupPage() {
   const { status, isLoading, error, refetch } = useSetupStatus()
-  const { settings, save, isSaving } = usePlatformSettings()
+  const [activeModal, setActiveModal] = useState<SetupModalStepId | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
 
-  const [activeModal, setActiveModal] = useState<ModalStepId | null>(null)
-  const [recipientsDraft, setRecipientsDraft] = useState('')
-
-  useEffect(() => {
-    if (settings) {
-      setRecipientsDraft(settings.sale_notification_recipients ?? '')
-    }
-  }, [settings])
-
-  function copyText(value: string, label: string) {
-    navigator.clipboard
-      .writeText(value)
-      .then(() => toast.success(`${label} copiado.`))
-      .catch(() => toast.error('Não foi possível copiar.'))
+  function openStepModal(stepId: SetupModalStepId) {
+    setActiveModal(stepId)
+    setModalOpen(true)
   }
 
-  async function handleSaveNotifications() {
-    try {
-      await save({ sale_notification_recipients: recipientsDraft.trim() || null })
-      toast.success('Destinatários de aviso atualizados.')
-      setActiveModal(null)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar destinatários.')
-    }
+  function closeStepModal() {
+    setModalOpen(false)
   }
 
-  const baseUrl = status?.appUrl?.replace(/\/$/, '') || ''
   const activeStep = status?.steps.find((s) => s.id === activeModal) ?? null
 
   return (
@@ -190,7 +157,7 @@ export default function AdminSetupPage() {
                             type="button"
                             size="sm"
                             variant={step.completed ? 'outline' : 'default'}
-                            onClick={() => setActiveModal(step.id as ModalStepId)}
+                            onClick={() => openStepModal(step.id as SetupModalStepId)}
                           >
                             {step.completed ? 'Revisar' : 'Configurar'}
                           </Button>
@@ -218,132 +185,13 @@ export default function AdminSetupPage() {
         </div>
       </div>
 
-      <Dialog open={activeModal !== null} onOpenChange={(open) => !open && setActiveModal(null)}>
-        <DialogContent className="max-h-[88vh] max-w-3xl overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{activeStep?.title ?? 'Configurar etapa'}</DialogTitle>
-            <DialogDescription>{activeStep?.description}</DialogDescription>
-          </DialogHeader>
-
-          {activeModal === 'environment' && (
-            <div className="space-y-4 text-sm">
-              {activeStep && activeStep.missing.length === 0 ? (
-                <Alert>
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <AlertTitle>Ambiente validado</AlertTitle>
-                  <AlertDescription>
-                    Postgres conectado e variáveis obrigatórias (`ACCESS_CODE_SECRET`,
-                    `NEXT_PUBLIC_APP_URL`, `ADMIN_EMAIL`) definidas no servidor.
-                  </AlertDescription>
-                </Alert>
-              ) : (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Pendências no ambiente (.env)</AlertTitle>
-                  <AlertDescription>
-                    <ul className="mt-1 list-disc space-y-1 pl-4">
-                      {activeStep?.missing.map((item) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                  </AlertDescription>
-                </Alert>
-              )}
-              <div className="flex justify-end gap-2">
-                <Button asChild variant="outline" size="sm">
-                  <Link href="/admin/settings?tab=connections">
-                    Ver diagnóstico de conexões
-                    <ExternalLink className="ml-2 h-3.5 w-3.5" />
-                  </Link>
-                </Button>
-                <Button type="button" size="sm" onClick={() => setActiveModal(null)}>
-                  Fechar
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {activeModal === 'brand' && <BrandSettingsCard onSaved={() => setActiveModal(null)} />}
-
-          {activeModal === 'email' && (
-            <EmailSmtpSettingsCard onSaved={() => setActiveModal(null)} />
-          )}
-
-          {activeModal === 'gateways' && (
-            <div className="space-y-4">
-              {baseUrl && (
-                <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
-                  <p className="text-xs font-medium">
-                    URLs de Webhook para cadastrar no Asaas / Pagar.me:
-                  </p>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {[
-                      { label: 'Webhook Asaas', url: `${baseUrl}/api/payments/asaas/webhook` },
-                      { label: 'Webhook Pagar.me', url: `${baseUrl}/api/payments/pagarme/webhook` },
-                    ].map((item) => (
-                      <div
-                        key={item.label}
-                        className="flex items-center justify-between gap-2 rounded-md border bg-background px-2.5 py-1.5 text-xs"
-                      >
-                        <div className="min-w-0">
-                          <div className="font-medium">{item.label}</div>
-                          <div className="truncate font-mono text-muted-foreground">{item.url}</div>
-                        </div>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => copyText(item.url, item.label)}
-                          aria-label={`Copiar ${item.label}`}
-                        >
-                          <Copy className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <GatewaySettingsCard />
-            </div>
-          )}
-
-          {activeModal === 'operations' && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  Informe um ou mais e-mails separados por vírgula para receber um resumo automático
-                  a cada venda confirmada.
-                </p>
-                <Textarea
-                  value={recipientsDraft}
-                  onChange={(e) => setRecipientsDraft(e.target.value)}
-                  placeholder="ex.: operacao@suaempresa.com, financeiro@suaempresa.com"
-                  rows={3}
-                  disabled={isSaving}
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setActiveModal(null)}
-                  disabled={isSaving}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => void handleSaveNotifications()}
-                  disabled={isSaving}
-                >
-                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Salvar destinatários
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <SetupStepModal
+        open={modalOpen}
+        stepId={activeModal}
+        step={activeStep}
+        appUrl={status?.appUrl ?? ''}
+        onClose={closeStepModal}
+      />
     </AdminPageLayout>
   )
 }

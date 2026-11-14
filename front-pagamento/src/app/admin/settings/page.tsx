@@ -18,7 +18,6 @@ import {
   Webhook,
   XCircle,
 } from 'lucide-react'
-import { toast } from 'sonner'
 
 import { AdminPageLayout } from '@/components/admin/admin-page-layout'
 import { BrandSettingsCard } from '@/components/admin/brand-settings-card'
@@ -27,14 +26,13 @@ import { EmailSmtpSettingsCard } from '@/components/admin/email-smtp-settings-ca
 import { GatewaySettingsCard } from '@/components/admin/gateway-settings-card'
 import { IntegrationKeysCard } from '@/components/admin/integration-keys-card'
 import { McpSettingsCard } from '@/components/admin/mcp-settings-card'
+import { SaleNotificationsCard } from '@/components/admin/sale-notifications-card'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Textarea } from '@/components/ui/textarea'
 import { useConnectionTests } from '@/hooks/admin/use-connection-tests'
-import { usePlatformSettings } from '@/hooks/admin/use-platform-settings'
 import { cn } from '@/lib/utils'
 
 const CONTENT = {
@@ -213,25 +211,6 @@ function AdminSettingsContent() {
   const { connections, isLoading, error, testConnections, isTesting, testError } =
     useConnectionTests()
 
-  const { settings, isLoading: platformLoading, save, isSaving, saveError } = usePlatformSettings()
-
-  const [recipientsDraft, setRecipientsDraft] = useState('')
-
-  useEffect(() => {
-    if (settings) {
-      setRecipientsDraft(settings.sale_notification_recipients ?? '')
-    }
-  }, [settings])
-
-  async function handleSaveSaleNotify() {
-    try {
-      await save({ sale_notification_recipients: recipientsDraft.trim() || null })
-      toast.success(CONTENT.saleNotify.saved)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar')
-    }
-  }
-
   return (
     <AdminPageLayout title={CONTENT.title} subtitle={CONTENT.subtitle}>
       <div className="grid gap-6 md:grid-cols-[240px_minmax(0,1fr)] md:items-start">
@@ -278,55 +257,7 @@ function AdminSettingsContent() {
 
           {activeTab === 'gateways' && <GatewaySettingsCard />}
 
-          {activeTab === 'notifications' && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Bell className="h-5 w-5 text-muted-foreground" />
-                  {CONTENT.saleNotify.title}
-                </CardTitle>
-                <CardDescription className="max-w-2xl">
-                  {CONTENT.saleNotify.description}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {platformLoading ? (
-                  <Skeleton className="h-24 w-full rounded-md" />
-                ) : (
-                  <>
-                    <Textarea
-                      value={recipientsDraft}
-                      onChange={(e) => setRecipientsDraft(e.target.value)}
-                      placeholder={CONTENT.saleNotify.placeholder}
-                      className="min-h-[100px] max-w-full resize-y break-all"
-                      disabled={isSaving}
-                      aria-label="E-mails para aviso de venda"
-                    />
-                    {saveError && (
-                      <p className="text-sm text-destructive break-words">
-                        {saveError instanceof Error ? saveError.message : String(saveError)}
-                      </p>
-                    )}
-                    <Button
-                      type="button"
-                      onClick={() => void handleSaveSaleNotify()}
-                      disabled={isSaving}
-                      className="w-full sm:w-auto"
-                    >
-                      {isSaving ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          {CONTENT.saleNotify.saving}
-                        </>
-                      ) : (
-                        CONTENT.saleNotify.save
-                      )}
-                    </Button>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          )}
+          {activeTab === 'notifications' && <SaleNotificationsCard />}
 
           {activeTab === 'integrations' && <IntegrationKeysCard />}
 

@@ -1,10 +1,11 @@
 'use client'
 
-import { createContext, useContext } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 
 import type { BrandConfig } from '@/lib/brand/brand-config'
 
 const BrandContext = createContext<BrandConfig | null>(null)
+const BrandUpdateContext = createContext<((patch: Partial<BrandConfig>) => void) | null>(null)
 
 export function BrandProvider({
   brand,
@@ -13,7 +14,21 @@ export function BrandProvider({
   brand: BrandConfig
   children: React.ReactNode
 }) {
-  return <BrandContext.Provider value={brand}>{children}</BrandContext.Provider>
+  const [current, setCurrent] = useState<BrandConfig>(brand)
+
+  useEffect(() => {
+    setCurrent(brand)
+  }, [brand])
+
+  const updateBrand = (patch: Partial<BrandConfig>) => {
+    setCurrent((prev) => ({ ...prev, ...patch }))
+  }
+
+  return (
+    <BrandContext.Provider value={current}>
+      <BrandUpdateContext.Provider value={updateBrand}>{children}</BrandUpdateContext.Provider>
+    </BrandContext.Provider>
+  )
 }
 
 export function useBrand(): BrandConfig {
@@ -22,4 +37,9 @@ export function useBrand(): BrandConfig {
     throw new Error('BrandProvider ausente')
   }
   return brand
+}
+
+export function useBrandUpdate(): (patch: Partial<BrandConfig>) => void {
+  const update = useContext(BrandUpdateContext)
+  return update ?? (() => {})
 }

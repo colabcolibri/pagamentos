@@ -55,7 +55,7 @@ function DialogOverlay({
     <DialogPrimitive.Backdrop
       data-slot="dialog-overlay"
       className={cn(
-        'data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 fixed inset-0 z-50 bg-black/50 backdrop-blur-[1px]',
+        'fixed inset-0 z-50 bg-black/50 transition-opacity duration-300 ease-out data-[starting-style]:opacity-0 data-[ending-style]:opacity-0',
         className
       )}
       {...props}
@@ -77,7 +77,7 @@ function DialogContent({
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          'bg-background data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 data-[closed]:zoom-out-95 data-[open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 flex max-h-[min(90vh,90dvh)] w-[min(calc(100vw-2rem),calc(100%-2rem))] max-w-[min(calc(100vw-2rem),calc(100%-2rem))] translate-x-[-50%] translate-y-[-50%] flex-col gap-4 overflow-hidden overscroll-contain rounded-lg border p-4 shadow-lg duration-200 sm:max-w-lg',
+          'bg-background fixed top-[50%] left-[50%] z-50 flex max-h-[min(90vh,90dvh)] w-[min(calc(100vw-2rem),calc(100%-2rem))] max-w-[min(calc(100vw-2rem),calc(100%-2rem))] translate-x-[-50%] translate-y-[-50%] flex-col gap-4 overflow-hidden overscroll-contain rounded-lg border p-4 shadow-lg transition-opacity duration-300 ease-out data-[starting-style]:opacity-0 data-[ending-style]:opacity-0 sm:max-w-lg',
           className
         )}
         {...props}

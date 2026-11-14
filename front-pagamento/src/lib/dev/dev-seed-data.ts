@@ -652,16 +652,23 @@ export const SEED_UPGRADE_PATHS = [
   {
     id: '33000001-0000-4000-8000-000000000001',
     fromPriceId: '22000001-0000-4000-8000-000000000004', // Starter Mensal
-    toPriceId: '22000001-0000-4000-8000-000000000006', // Pro Mensal
+    toPriceId: '22000001-0000-4000-8000-000000000005', // Starter Anual (mesmo produto)
     sortOrder: 1,
-    metadata: { badge: 'Mais popular' },
+    metadata: { badge: '2 meses grátis' },
   },
   {
     id: '33000001-0000-4000-8000-000000000002',
     fromPriceId: '22000001-0000-4000-8000-000000000006', // Pro Mensal
-    toPriceId: '22000001-0000-4000-8000-000000000008', // Enterprise Anual
-    sortOrder: 2,
-    metadata: { badge: 'SLA Dedicado' },
+    toPriceId: '22000001-0000-4000-8000-000000000007', // Pro Anual (mesmo produto)
+    sortOrder: 1,
+    metadata: { badge: 'Economize no anual' },
+  },
+  {
+    id: '33000001-0000-4000-8000-000000000003',
+    fromPriceId: '22000001-0000-4000-8000-000000000002', // Formação 12 meses
+    toPriceId: '22000001-0000-4000-8000-000000000001', // Formação Vitalício (mesmo produto)
+    sortOrder: 1,
+    metadata: { badge: 'Acesso vitalício' },
   },
 ]
 

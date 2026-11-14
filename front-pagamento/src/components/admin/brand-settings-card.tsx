@@ -2,11 +2,10 @@
 
 import { type ChangeEvent, useEffect, useState } from 'react'
 
-import { useRouter } from 'next/navigation'
-
 import { Building2, Loader2, Trash2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { useBrandUpdate } from '@/components/brand/brand-provider'
 import { Field, FieldDescription, FieldLabel } from '@/components/layout/ui/admin-field'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,7 +15,7 @@ import { usePlatformSettings } from '@/hooks/admin/use-platform-settings'
 const MAX_LOGO_BYTES = 512 * 1024
 
 export function BrandSettingsCard({ onSaved }: { onSaved?: () => void } = {}) {
-  const router = useRouter()
+  const updateBrand = useBrandUpdate()
   const { settings, isLoading, save, isSaving } = usePlatformSettings()
 
   const [brandName, setBrandName] = useState('')
@@ -74,7 +73,7 @@ export function BrandSettingsCard({ onSaved }: { onSaved?: () => void } = {}) {
 
   async function handleSave() {
     try {
-      await save({
+      const updated = await save({
         brand_name: brandName.trim() || null,
         brand_tagline: tagline.trim() || null,
         brand_copyright_name: copyrightName.trim() || null,
@@ -92,7 +91,18 @@ export function BrandSettingsCard({ onSaved }: { onSaved?: () => void } = {}) {
       })
       setPendingLogo(null)
       setClearLogo(false)
-      router.refresh()
+      updateBrand({
+        name: updated.brand_name,
+        tagline: updated.brand_tagline,
+        logoSrc: updated.logo_src,
+        copyrightName: updated.brand_copyright_name,
+        legalName: updated.brand_legal_name,
+        cnpj: updated.brand_cnpj,
+        supportEmail: updated.brand_support_email,
+        contactEmail: updated.brand_contact_email,
+        privacyUrl: updated.brand_privacy_url,
+        termsUrl: updated.brand_terms_url,
+      })
       toast.success('Identidade e dados da empresa atualizados.')
       onSaved?.()
     } catch (err) {

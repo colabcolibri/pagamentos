@@ -161,17 +161,12 @@ export function Dialog({
     >
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogPortal>
-        <DialogOverlay
-          className={cn(
-            'fixed inset-0 z-50 bg-black/50 backdrop-blur-sm data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0',
-            overlayClassName
-          )}
-        />
+        <DialogOverlay className={cn('fixed inset-0 z-50 bg-black/50', overlayClassName)} />
         <DialogContent
           onClick={(e) => e.stopPropagation()}
           showCloseButton={false}
           className={cn(
-            'fixed top-1/2 left-1/2 z-50 grid max-h-[min(90vh,90dvh)] min-h-0 w-[min(calc(100vw-2rem),calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden rounded-lg border bg-background p-0 shadow-lg duration-200 data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 data-[closed]:zoom-out-95 data-[open]:zoom-in-95 overscroll-contain sm:w-[min(calc(100vw-4rem),calc(100%-4rem))]',
+            'fixed top-1/2 left-1/2 z-50 grid max-h-[min(90vh,90dvh)] min-h-0 w-[min(calc(100vw-2rem),calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden rounded-lg border bg-background p-0 shadow-lg overscroll-contain sm:w-[min(calc(100vw-4rem),calc(100%-4rem))]',
             height && MAX_HEIGHT_SIZES[height],
             dialogVariants({ intent, size }),
             contentClassName
@@ -202,12 +197,7 @@ export function Dialog({
                   {headerActions}
                   {!hideCloseButton && (
                     <DialogClose asChild>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-6 w-6 rounded-full"
-                        onClick={() => onOpenChange(false)}
-                      >
+                      <Button size="icon" variant="ghost" className="h-6 w-6 rounded-full">
                         <X className="h-4 w-4" />
                       </Button>
                     </DialogClose>
