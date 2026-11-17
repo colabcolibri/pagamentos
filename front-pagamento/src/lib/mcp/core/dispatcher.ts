@@ -2,7 +2,7 @@ import 'server-only'
 import { z } from 'zod'
 
 import { auditMcpCall } from '../audit'
-import { filterAllowed } from '../policy/decide'
+import { filterAllowed, resolveEffectivePolicy } from '../policy/decide'
 import { loadPolicyConfig } from '../policy/store'
 import { executeTool } from './execute-tool'
 import type { McpPrincipal, McpTool } from './types'
@@ -33,7 +33,7 @@ export function createDispatcher(tools: readonly McpTool[]) {
       }
     }
     if (method === 'tools/list') {
-      const policy = await loadPolicyConfig()
+      const policy = resolveEffectivePolicy(await loadPolicyConfig(), principal.grantsOverride)
       return {
         tools: filterAllowed(tools, policy).map((tool) => ({
           name: tool.name,

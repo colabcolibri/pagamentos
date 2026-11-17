@@ -8,6 +8,7 @@ export type McpPrincipal = {
   id: string
   email: string
   clientId: string
+  grantsOverride?: Readonly<Record<string, readonly McpAction[]>> | null
 }
 
 export type McpToolContext = {

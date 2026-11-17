@@ -4,6 +4,8 @@ import 'server-only'
 import { hashSecret } from '@/lib/auth/access-code'
 import { getPool } from '@/lib/db/pool'
 
+import type { McpPrincipal } from '../core/types'
+import { type PolicyActionsState, policyMapToGrants } from '../policy/decide'
 import { verifyPkce } from './pkce'
 import { isAllowedRedirectUri } from './redirect-uri'
 
@@ -165,14 +167,15 @@ export async function createPersonalToken(input: {
   }
 }
 
-export async function principalFromAccessToken(token: string) {
+export async function principalFromAccessToken(token: string): Promise<McpPrincipal | null> {
   const rows = await getPool().query<{
     id: string
     email: string
     client_id: string | null
     label: string | null
+    custom_policy: Record<string, Partial<PolicyActionsState>> | null
   }>(
-    `SELECT p.id, p.email, t.client_id, t.label
+    `SELECT p.id, p.email, t.client_id, t.label, t.custom_policy
      FROM payments.mcp_tokens t
      JOIN payments.profiles p ON p.id = t.profile_id
      JOIN payments.admin_users au ON au.id = p.id AND au.is_active IS TRUE
@@ -188,19 +191,38 @@ export async function principalFromAccessToken(token: string) {
     id: row.id,
     email: row.email,
     clientId: row.client_id ?? (row.label ? `pat:${row.label}` : 'manual'),
+    grantsOverride: row.custom_policy ? policyMapToGrants(row.custom_policy) : null,
   }
 }
 
 export async function listTokens(profileId: string) {
   const rows = await getPool().query(
-    `SELECT id, client_id, kind, label, expires_at, revoked_at, created_at
+    `SELECT id, client_id, kind, label, expires_at, revoked_at, created_at, custom_policy
      FROM payments.mcp_tokens
      WHERE profile_id = $1
      ORDER BY created_at DESC, expires_at DESC NULLS FIRST
-     LIMIT 30`,
+     LIMIT 50`,
     [profileId]
   )
   return rows.rows
+}
+
+export async function updateTokenPolicy(input: {
+  id: string
+  profileId: string
+  customPolicy: Record<string, PolicyActionsState> | null
+}) {
+  const rows = await getPool().query<{
+    id: string
+    custom_policy: Record<string, PolicyActionsState> | null
+  }>(
+    `UPDATE payments.mcp_tokens
+     SET custom_policy = $3::jsonb
+     WHERE id = $1 AND profile_id = $2 AND kind = 'pat'
+     RETURNING id, custom_policy`,
+    [input.id, input.profileId, input.customPolicy ? JSON.stringify(input.customPolicy) : null]
+  )
+  return rows.rows[0] ?? null
 }
 
 export async function revokeToken(id: string, profileId: string) {

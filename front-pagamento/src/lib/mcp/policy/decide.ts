@@ -59,6 +59,28 @@ export const DENY_MESSAGES: Record<DenyReason, string> = {
   dry_run_sem_escrita: 'dry_run só vale para escrita.',
 }
 
+export function resolveEffectivePolicy(
+  globalPolicy: PolicyConfig,
+  grantsOverride?: Readonly<Record<string, readonly McpAction[]>> | null
+): PolicyConfig {
+  if (!grantsOverride) return globalPolicy
+  return { enabled: globalPolicy.enabled, grants: grantsOverride }
+}
+
+export function policyMapToGrants(
+  policies: Record<string, Partial<PolicyActionsState>>
+): Record<string, McpAction[]> {
+  const grants: Record<string, McpAction[]> = {}
+  for (const [key, actions] of Object.entries(policies)) {
+    const allowed: McpAction[] = []
+    if (actions.read) allowed.push('read')
+    if (actions.upsert) allowed.push('upsert')
+    if (actions.delete) allowed.push('delete')
+    if (allowed.length > 0) grants[key] = allowed
+  }
+  return grants
+}
+
 export function decideAccess(tool: ToolRef, config: PolicyConfig): Decision {
   if (!config.enabled) return { allowed: false, reason: 'mcp_desligado' }
   const grants = config.grants[tool.policyKey] ?? []

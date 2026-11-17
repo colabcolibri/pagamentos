@@ -1,6 +1,11 @@
 import type { z } from 'zod'
 
-import { DENY_MESSAGES, type PolicyConfig, decideAccess } from '../policy/decide'
+import {
+  DENY_MESSAGES,
+  type PolicyConfig,
+  decideAccess,
+  resolveEffectivePolicy,
+} from '../policy/decide'
 import type { McpPrincipal, McpTool } from './types'
 
 export type ToolResult = {
@@ -44,7 +49,7 @@ export async function executeTool(
   principal: McpPrincipal,
   deps: ExecuteDeps
 ): Promise<ToolResult> {
-  const policy = await deps.loadPolicy()
+  const policy = resolveEffectivePolicy(await deps.loadPolicy(), principal.grantsOverride)
   const decision = decideAccess(tool, policy)
   if (!decision.allowed) {
     await deps.audit({
