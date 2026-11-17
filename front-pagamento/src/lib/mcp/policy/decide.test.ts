@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { decideAccess, filterAllowed } from './decide'
+import { cascadeModuleActions, decideAccess, filterAllowed } from './decide'
 
 const tool = { name: 'produto_salvar', policyKey: 'produto', action: 'upsert' as const }
 
@@ -33,5 +33,39 @@ describe('decideAccess', () => {
     expect(
       filterAllowed(tools, { enabled: true, grants: { produto: ['read'] } }).map((t) => t.name)
     ).toEqual(['a'])
+  })
+
+  it('é escalonado: gravar libera ler, e apagar libera ler e gravar', () => {
+    const readTool = { name: 'produto_listar', policyKey: 'produto', action: 'read' as const }
+    const upsertTool = { name: 'produto_salvar', policyKey: 'produto', action: 'upsert' as const }
+    expect(decideAccess(readTool, { enabled: true, grants: { produto: ['upsert'] } })).toEqual({
+      allowed: true,
+    })
+    expect(decideAccess(readTool, { enabled: true, grants: { produto: ['delete'] } })).toEqual({
+      allowed: true,
+    })
+    expect(decideAccess(upsertTool, { enabled: true, grants: { produto: ['delete'] } })).toEqual({
+      allowed: true,
+    })
+  })
+})
+
+describe('cascadeModuleActions', () => {
+  it('ao ligar nível maior libera os anteriores e ao desligar nível menor revoga os maiores', () => {
+    expect(
+      cascadeModuleActions({ read: false, upsert: false, delete: false }, 'upsert', true)
+    ).toEqual({ read: true, upsert: true, delete: false })
+
+    expect(
+      cascadeModuleActions({ read: false, upsert: false, delete: false }, 'delete', true)
+    ).toEqual({ read: true, upsert: true, delete: true })
+
+    expect(
+      cascadeModuleActions({ read: true, upsert: true, delete: true }, 'upsert', false)
+    ).toEqual({ read: true, upsert: false, delete: false })
+
+    expect(cascadeModuleActions({ read: true, upsert: true, delete: true }, 'read', false)).toEqual(
+      { read: false, upsert: false, delete: false }
+    )
   })
 })

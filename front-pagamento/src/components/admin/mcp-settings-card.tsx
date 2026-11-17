@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { POLICY_KEYS } from '@/lib/mcp/core/types'
+import { cascadeModuleActions } from '@/lib/mcp/policy/decide'
 
 type Actions = { read: boolean; upsert: boolean; delete: boolean }
 
@@ -290,7 +291,7 @@ export function McpSettingsCard() {
               <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm font-medium">Permissões por módulo</p>
                 <p className="text-xs text-muted-foreground">
-                  Ler = consultar · Gravar = criar/editar · Apagar = excluir
+                  Escalonado: Ler &lt; Gravar &lt; Apagar (marcar um nível libera os anteriores)
                 </p>
               </div>
               <div className="grid gap-2.5">
@@ -318,12 +319,18 @@ export function McpSettingsCard() {
                               checked={policy.policies[key]?.[action.key] ?? false}
                               disabled={saving}
                               onChange={(event) => {
+                                const current = policy.policies[key] ?? {
+                                  read: false,
+                                  upsert: false,
+                                  delete: false,
+                                }
                                 const policies = {
                                   ...policy.policies,
-                                  [key]: {
-                                    ...policy.policies[key],
-                                    [action.key]: event.target.checked,
-                                  },
+                                  [key]: cascadeModuleActions(
+                                    current,
+                                    action.key,
+                                    event.target.checked
+                                  ),
                                 }
                                 void save({ ...policy, policies })
                               }}
