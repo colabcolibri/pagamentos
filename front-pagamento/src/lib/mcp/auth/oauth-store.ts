@@ -136,30 +136,68 @@ export async function rotateRefresh(refresh: string, clientId: string) {
   return issueTokenPair(row.profile_id, clientId)
 }
 
+export async function createPersonalToken(input: {
+  profileId: string
+  label: string
+  expiresInDays: number | null
+}) {
+  const token = `qtmcp_${randomBytes(24).toString('base64url')}`
+  const rows = await getPool().query<{
+    id: string
+    label: string
+    kind: string
+    expires_at: Date | null
+    created_at: Date
+  }>(
+    `INSERT INTO payments.mcp_tokens (token_hash, kind, profile_id, client_id, label, expires_at)
+     VALUES ($1, 'pat', $2, NULL, $3, CASE WHEN $4::integer IS NULL THEN NULL ELSE now() + make_interval(days => $4::integer) END)
+     RETURNING id, label, kind, expires_at, created_at`,
+    [hashSecret(token), input.profileId, input.label.trim(), input.expiresInDays]
+  )
+  const row = rows.rows[0]
+  return {
+    id: row.id,
+    label: row.label,
+    kind: row.kind,
+    token,
+    expires_at: row.expires_at,
+    created_at: row.created_at,
+  }
+}
+
 export async function principalFromAccessToken(token: string) {
-  const rows = await getPool().query<{ id: string; email: string; client_id: string }>(
-    `SELECT p.id, p.email, t.client_id
+  const rows = await getPool().query<{
+    id: string
+    email: string
+    client_id: string | null
+    label: string | null
+  }>(
+    `SELECT p.id, p.email, t.client_id, t.label
      FROM payments.mcp_tokens t
      JOIN payments.profiles p ON p.id = t.profile_id
      JOIN payments.admin_users au ON au.id = p.id AND au.is_active IS TRUE
      WHERE t.token_hash = $1
-       AND t.kind = 'access'
+       AND t.kind IN ('access', 'pat')
        AND t.revoked_at IS NULL
-       AND t.expires_at > now()`,
+       AND (t.expires_at IS NULL OR t.expires_at > now())`,
     [hashSecret(token)]
   )
   const row = rows.rows[0]
   if (!row) return null
-  return { id: row.id, email: row.email, clientId: row.client_id }
+  return {
+    id: row.id,
+    email: row.email,
+    clientId: row.client_id ?? (row.label ? `pat:${row.label}` : 'manual'),
+  }
 }
 
 export async function listTokens(profileId: string) {
   const rows = await getPool().query(
-    `SELECT id, client_id, kind, expires_at, revoked_at
+    `SELECT id, client_id, kind, label, expires_at, revoked_at, created_at
      FROM payments.mcp_tokens
      WHERE profile_id = $1
-     ORDER BY expires_at DESC
-     LIMIT 20`,
+     ORDER BY created_at DESC, expires_at DESC NULLS FIRST
+     LIMIT 30`,
     [profileId]
   )
   return rows.rows
