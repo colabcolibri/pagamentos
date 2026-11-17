@@ -16,21 +16,31 @@ export const ORDER_TOOLS: McpTool[] = [
   defineTool({
     name: 'pedido_listar',
     title: 'Listar pedidos',
-    description: 'Lista pedidos sem dado de cartão.',
+    description:
+      'Lista os pedidos recentes (até 50, sem dados de cartão), com status, valor em centavos, cliente e gateway.',
     policyKey: 'pedido',
     action: 'read',
     risk: 'baixo',
-    input: z.object({ limit: z.number().int().min(1).max(50).optional() }),
+    input: z.object({
+      limit: z
+        .number()
+        .int()
+        .min(1)
+        .max(50)
+        .optional()
+        .describe('Quantidade máxima de pedidos (1 a 50, padrão 20).'),
+    }),
     handler: async (args) => listAdminOrders({ limit: args.limit ?? 20, offset: 0 }),
   }),
   defineTool({
     name: 'pedido_abrir',
     title: 'Abrir pedido',
-    description: 'Abre um pedido.',
+    description:
+      'Consulta os detalhes completos de um pedido pelo UUID, incluindo itens, cliente, gateway e histórico.',
     policyKey: 'pedido',
     action: 'read',
     risk: 'baixo',
-    input: z.object({ id: z.string().uuid() }),
+    input: z.object({ id: z.string().uuid().describe('UUID do pedido.') }),
     handler: async (args) => readAdminOrder(args.id),
   }),
   defineTool({

@@ -23,7 +23,7 @@ services:
       TRUSTED_PROXY: "1"
     networks:
       - quitou-db
-    command: ["node", "node_modules/next/dist/bin/next", "start", "-H", "0.0.0.0", "-p", "3004"]
+      - edge-proxy
     expose:
       - "3004"
 
@@ -31,3 +31,6 @@ networks:
   quitou-db:
     external: true
     name: quitou-db
+  edge-proxy:
+    external: true
+    name: edge-proxy

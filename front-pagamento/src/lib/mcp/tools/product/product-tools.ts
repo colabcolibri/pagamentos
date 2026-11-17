@@ -76,11 +76,12 @@ export const PRODUCT_TOOLS: McpTool[] = [
   defineTool({
     name: 'produto_abrir',
     title: 'Abrir produto',
-    description: 'Abre um produto pelo id.',
+    description:
+      'Consulta um produto completo pelo UUID, incluindo preços, metas e segredo de webhook mascarado.',
     policyKey: 'produto',
     action: 'read',
     risk: 'baixo',
-    input: z.object({ id: z.string().uuid() }),
+    input: z.object({ id: z.string().uuid().describe('UUID do produto.') }),
     handler: async (args) => {
       const { productService } = createAdminProductServices()
       const product = await productService.getProductById(args.id)
@@ -170,13 +171,14 @@ export const PRODUCT_TOOLS: McpTool[] = [
   defineTool({
     name: 'preco_apagar',
     title: 'Apagar preço',
-    description: 'Apaga um preço do produto.',
+    description:
+      'Remove um preço específico de um produto. Risco alto: exige confirmar: true ou dry_run: true.',
     policyKey: 'produto',
     action: 'delete',
     risk: 'alto',
     input: z.object({
-      productId: z.string().uuid(),
-      priceId: z.string().uuid(),
+      productId: z.string().uuid().describe('UUID do produto.'),
+      priceId: z.string().uuid().describe('UUID do preço a remover.'),
     }),
     handler: async (args, ctx) => {
       const preview = guardWrite(ctx, args)
@@ -193,11 +195,12 @@ export const PRODUCT_TOOLS: McpTool[] = [
   defineTool({
     name: 'estoque_recalcular',
     title: 'Recalcular estoque',
-    description: 'Recalcula o estoque vendido de um preço.',
+    description:
+      'Recalcula o estoque vendido de um preço no banco com base nos pedidos pagos. Aceita dry_run: true.',
     policyKey: 'produto',
     action: 'upsert',
     risk: 'medio',
-    input: z.object({ priceId: z.string().uuid() }),
+    input: z.object({ priceId: z.string().uuid().describe('UUID do preço.') }),
     handler: async (args, ctx) => {
       const preview = guardWrite(ctx, args)
       if (preview) return preview

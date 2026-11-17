@@ -28,7 +28,8 @@ export const COUPON_TOOLS: McpTool[] = [
   defineTool({
     name: 'cupom_listar',
     title: 'Listar cupons',
-    description: 'Lista cupons.',
+    description:
+      'Lista até 50 cupons cadastrados com código, tipo de desconto, vigência, limites e status ativo.',
     policyKey: 'cupom',
     action: 'read',
     risk: 'baixo',
@@ -38,11 +39,12 @@ export const COUPON_TOOLS: McpTool[] = [
   defineTool({
     name: 'cupom_abrir',
     title: 'Abrir cupom',
-    description: 'Abre um cupom.',
+    description:
+      'Consulta todos os detalhes de um cupom pelo UUID, incluindo produtos e preços vinculados.',
     policyKey: 'cupom',
     action: 'read',
     risk: 'baixo',
-    input: z.object({ id: z.string().uuid() }),
+    input: z.object({ id: z.string().uuid().describe('UUID do cupom.') }),
     handler: async (args) => getAdminCoupon(args.id),
   }),
   defineTool({

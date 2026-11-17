@@ -39,6 +39,8 @@ function buildContentSecurityPolicy(): string {
 }
 
 const nextConfig: NextConfig = {
+  output: process.env.NEXT_OUTPUT_STANDALONE === '1' ? 'standalone' : undefined,
+  outputFileTracingRoot: path.join(__dirname, '..'),
   serverExternalPackages: ['nodemailer', '@quitou/core'],
   turbopack: {
     root: path.join(__dirname, '..'),

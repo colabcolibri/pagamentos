@@ -2,6 +2,7 @@
 .agent
 .cursor
 .meridian
+docs
 **/.env
 **/.env.local
 **/.env.*
@@ -11,4 +12,6 @@
 **/dist
 **/.vercel
 **/.DS_Store
+**/*.test.ts
+**/*.test.tsx
 agent-transcripts
