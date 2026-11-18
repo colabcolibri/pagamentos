@@ -101,6 +101,7 @@ export function buildPagarmeLineTotals(
   cashDiscountPercent: number,
   couponRow: CouponDiscountRow | null
 ): {
+  cartAmountCents: number
   installmentOneTotal: number
   installmentMultiTotal: number
   pixBoletoDiscountPercent: number | null
@@ -122,8 +123,14 @@ export function buildPagarmeLineTotals(
     installmentOneTotal = cashBaseCentsFromList(installmentOneTotal, cashDiscountPercent)
   }
 
-  const pixPct = effectiveListToCashDiscountPercent(listAmountCents, installmentOneTotal)
-  const pixBoletoDiscountPercent = pixPct > 0 ? pixPct : null
+  // Pagar.me exige installment.total >= cart_settings.items[0].amount e aplica PIX/Boleto sobre o item.
+  const cartAmountCents = Math.min(installmentOneTotal, installmentMultiTotal)
+  const pixBoletoDiscountPercent = null
 
-  return { installmentOneTotal, installmentMultiTotal, pixBoletoDiscountPercent }
+  return {
+    cartAmountCents,
+    installmentOneTotal,
+    installmentMultiTotal,
+    pixBoletoDiscountPercent,
+  }
 }

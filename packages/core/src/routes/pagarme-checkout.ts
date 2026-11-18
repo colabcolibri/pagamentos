@@ -286,7 +286,7 @@ export function createPagarmeCheckoutHandler(options: PagarmeCheckoutOptions) {
         cart_settings: {
           items: [
             {
-              amount,
+              amount: lines.cartAmountCents,
               name: product.name,
               default_quantity: 1,
             },
