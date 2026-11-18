@@ -552,6 +552,21 @@ export default function ProductsPage() {
                                 )}
                               </Button>
                             )}
+                            {product.active && prices.some((p) => p.active) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  void copyToClipboard(
+                                    `${window.location.origin}/oferta/${encodeURIComponent(product.ref)}`,
+                                    { successMessage: 'Link da oferta copiado!' }
+                                  )
+                                }
+                              >
+                                <Copy className="size-3.5" />
+                                Link da oferta
+                              </Button>
+                            )}
                             <Button
                               variant="outline"
                               size="sm"
