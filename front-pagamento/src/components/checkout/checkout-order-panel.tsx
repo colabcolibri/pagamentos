@@ -35,6 +35,7 @@ export function CheckoutOrderPanel({
   mainLineCents,
   selectedAddonsExtraCents,
   topicSections,
+  planSelector,
   copy,
   className,
 }: {
@@ -50,33 +51,37 @@ export function CheckoutOrderPanel({
   mainLineCents: number | null
   selectedAddonsExtraCents: number
   topicSections: PriceTopicSection[]
+  planSelector?: React.ReactNode
   copy: Copy
   className?: string
 }) {
   const planTitle = pricePlanTitle(selectedPrice)
+  const hasDistinctPlanTitle = Boolean(planTitle && planTitle.trim() !== productName.trim())
   const grandSimple = mainLineCents != null ? mainLineCents + selectedAddonsExtraCents : null
 
   return (
     <aside
       className={cn(
-        'min-w-0 rounded-xl border border-border/70 bg-card/80 shadow-sm backdrop-blur-sm',
+        'min-w-0 rounded-xl border border-border/70 bg-card/90 shadow-sm backdrop-blur-sm',
         className
       )}
       aria-label="Resumo do pedido"
     >
-      <div className="space-y-5 p-4 sm:p-5">
-        <header className="min-w-0 space-y-1 border-b border-border/50 pb-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground wrap-break-word">
-            {productName}
-          </p>
-          {planTitle ? (
-            <h2 className="text-lg font-semibold leading-snug text-foreground wrap-break-word sm:text-xl">
-              {planTitle}
-            </h2>
+      <div className="space-y-5 p-4 sm:p-6">
+        <header className="min-w-0 space-y-1.5 border-b border-border/50 pb-4">
+          {hasDistinctPlanTitle ? (
+            <>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground wrap-break-word">
+                {productName}
+              </p>
+              <h1 className="text-xl font-bold leading-snug tracking-tight text-foreground wrap-break-word sm:text-2xl">
+                {planTitle}
+              </h1>
+            </>
           ) : (
-            <h2 className="text-lg font-semibold leading-snug text-foreground wrap-break-word sm:text-xl">
+            <h1 className="text-xl font-bold leading-snug tracking-tight text-foreground wrap-break-word sm:text-2xl">
               {productName}
-            </h2>
+            </h1>
           )}
           {productDescription ? (
             <p className="text-sm leading-relaxed text-muted-foreground wrap-break-word">
@@ -84,6 +89,8 @@ export function CheckoutOrderPanel({
             </p>
           ) : null}
         </header>
+
+        {planSelector}
 
         {/* Com UI de promo: preço fica na coluna ao lado; aqui só estoque (+ linha de opcionais se houver). */}
         {priceUi ? (

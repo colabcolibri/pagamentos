@@ -1,16 +1,17 @@
 'use client'
 
-import { use, useMemo, useState } from 'react'
+import { use, useEffect, useMemo, useState } from 'react'
 
 import Link from 'next/link'
 
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertCircle, Loader2 } from 'lucide-react'
 
 import { CheckoutScreen } from '@/components/checkout/checkout-screen'
 import { isPriceSoldOut } from '@/components/checkout/product-price-selector'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { fetchProductWithPriceById } from '@/hooks/use-product-price'
 import type { Price, Product } from '@/lib/payments/product'
 
 export default function ProductOfferPage({
@@ -23,6 +24,7 @@ export default function ProductOfferPage({
   const { ref } = use(params)
   const { price: requestedPriceId } = use(searchParams)
   const [selectedPriceId, setSelectedPriceId] = useState<string | null>(null)
+  const queryClient = useQueryClient()
 
   const { data, isLoading, error, refetch } = useQuery<{ product: Product }>({
     queryKey: ['public-product-by-ref', ref],
@@ -50,6 +52,17 @@ export default function ProductOfferPage({
     }
     return activePrices.find((p) => !isPriceSoldOut(p))?.id ?? activePrices[0]?.id ?? null
   }, [activePrices, requestedPriceId, selectedPriceId])
+
+  useEffect(() => {
+    for (const p of activePrices) {
+      if (p.id === effectivePriceId) continue
+      void queryClient.prefetchQuery({
+        queryKey: ['product-by-price', p.id],
+        queryFn: () => fetchProductWithPriceById(p.id),
+        staleTime: 5 * 60 * 1000,
+      })
+    }
+  }, [activePrices, effectivePriceId, queryClient])
 
   if (isLoading) {
     return (

@@ -20,10 +20,46 @@ const CONTENT = {
 export interface TrustIndicatorsProps {
   /** URL pública da política, vinda da marca da instância. */
   privacyPolicyHref?: string | null
+  variant?: 'card' | 'compact'
   className?: string
 }
 
-export function TrustIndicators({ privacyPolicyHref, className }: TrustIndicatorsProps) {
+export function TrustIndicators({
+  privacyPolicyHref,
+  variant = 'card',
+  className,
+}: TrustIndicatorsProps) {
+  if (variant === 'compact') {
+    return (
+      <div
+        className={cn(
+          'flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg border border-border/60 bg-muted/30 px-3.5 py-2.5 text-xs text-muted-foreground',
+          className
+        )}
+      >
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+            <Lock className="h-3.5 w-3.5 text-success" aria-hidden />
+            Compra segura (HTTPS)
+          </span>
+          <span aria-hidden>·</span>
+          <span>Cartão não passa por este site</span>
+        </div>
+        {privacyPolicyHref ? (
+          <a
+            href={privacyPolicyHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+          >
+            {CONTENT.privacyLink}
+            <ExternalLink className="h-3 w-3" aria-hidden />
+          </a>
+        ) : null}
+      </div>
+    )
+  }
+
   return (
     <Card
       className={cn(

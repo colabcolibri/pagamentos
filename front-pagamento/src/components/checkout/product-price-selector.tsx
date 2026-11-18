@@ -1,9 +1,6 @@
 'use client'
 
-import { Check, Package } from 'lucide-react'
-
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
 import { checkoutPriceLineTitle } from '@/lib/checkout/offer-display'
 import type { Price } from '@/lib/payments/product'
 import { cn } from '@/lib/utils'
@@ -61,14 +58,17 @@ export function ProductPriceSelector({
 }) {
   if (prices.length <= 1) return null
 
-  return (
-    <div className="mb-6 space-y-2.5">
-      <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-        <Package className="h-4 w-4 text-primary" />
-        <span>Escolha a opção desejada</span>
-      </div>
+  const isTwoOptions = prices.length === 2
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+  return (
+    <div className="space-y-2" role="radiogroup" aria-label="Opções do produto">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Escolha o plano
+      </p>
+
+      <div
+        className={cn('grid gap-2', isTwoOptions ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1')}
+      >
         {prices.map((price) => {
           const isSelected = price.id === selectedPriceId
           const stock = getStockLabel(price)
@@ -86,50 +86,62 @@ export function ProductPriceSelector({
             <button
               key={price.id}
               type="button"
+              role="radio"
+              aria-checked={isSelected}
               disabled={disabled || soldOut}
               onClick={() => onSelectPrice(price.id)}
-              className="text-left focus:outline-none disabled:cursor-not-allowed"
+              className={cn(
+                'flex w-full items-start gap-2.5 rounded-lg border p-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed',
+                isSelected && !soldOut
+                  ? 'border-primary bg-primary/[0.04] ring-1 ring-primary/30'
+                  : 'border-border/80 bg-background hover:border-primary/45',
+                soldOut && 'bg-muted/40 opacity-55'
+              )}
             >
-              <Card
+              <span
                 className={cn(
-                  'h-full transition-all',
+                  'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border',
                   isSelected && !soldOut
-                    ? 'border-primary ring-2 ring-primary/20 bg-primary/[0.02]'
-                    : 'hover:border-primary/50',
-                  soldOut && 'opacity-55 bg-muted/40'
+                    ? 'border-primary bg-primary'
+                    : 'border-muted-foreground/40'
                 )}
               >
-                <CardContent className="flex h-full flex-col justify-between gap-2.5 p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 space-y-1">
-                      <div className="font-medium text-sm text-foreground leading-snug wrap-break-word">
-                        {title}
-                      </div>
-                      <div className="text-xs text-muted-foreground">{recurrence}</div>
-                    </div>
-                    {isSelected && !soldOut && (
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                        <Check className="h-3 w-3" />
-                      </span>
-                    )}
-                  </div>
+                {isSelected && !soldOut ? (
+                  <span className="h-1.5 w-1.5 rounded-full bg-primary-foreground" />
+                ) : null}
+              </span>
 
-                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                    <span className="text-lg font-bold tracking-tight text-foreground tabular-nums">
-                      {formatMoney(price.amount, price.currency)}
-                    </span>
-                    {stock && (
+              <div
+                className={cn(
+                  'flex min-w-0 flex-1',
+                  isTwoOptions
+                    ? 'flex-col justify-between gap-2'
+                    : 'items-center justify-between gap-3'
+                )}
+              >
+                <div className="min-w-0 space-y-0.5">
+                  <div className="text-sm font-medium leading-snug text-foreground wrap-break-word">
+                    {title}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                    <span>{recurrence}</span>
+                    {stock ? (
                       <Badge
                         variant={
                           stock.soldOut ? 'destructive' : stock.urgent ? 'secondary' : 'outline'
                         }
+                        className="h-4 px-1.5 text-[10px]"
                       >
                         {stock.label}
                       </Badge>
-                    )}
+                    ) : null}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+
+                <span className="shrink-0 text-base font-bold tracking-tight text-foreground tabular-nums">
+                  {formatMoney(price.amount, price.currency)}
+                </span>
+              </div>
             </button>
           )
         })}

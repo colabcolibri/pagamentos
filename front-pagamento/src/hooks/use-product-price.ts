@@ -1,5 +1,5 @@
 import { type PricePromoPublicDisplay, resolveCheckoutPricePromo } from '@quitou/core/pricing'
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 
 import { loadCheckoutProductByPriceAction } from '@/app/actions/checkout-product-actions'
 import type { Price, Product } from '@/lib/payments/product'
@@ -168,42 +168,45 @@ export function useProductPrice(productRef: string, options: UseProductPriceOpti
 // HOOK PARA BUSCAR POR PRICE ID
 // ==========================================
 
+export async function fetchProductWithPriceById(priceId: string): Promise<ProductWithPrice> {
+  if (!priceId) {
+    throw new Error('Price ID is required')
+  }
+
+  const payload = await loadCheckoutProductByPriceAction(priceId)
+  if (!payload.ok) {
+    throw new Error(payload.error || 'Erro ao buscar produto')
+  }
+  const { product, price_ui: priceUi } = payload
+
+  // Filtrar apenas preços ativos e ordenar para colocar o selecionado primeiro
+  const activePrices = (product.prices || [])
+    .filter((price: Price) => price.active)
+    .sort((a: Price, b: Price) => {
+      if (a.id === priceId) return -1
+      if (b.id === priceId) return 1
+      return 0
+    })
+
+  const productWithPrice = {
+    ...product,
+    prices: activePrices,
+  } as ProductWithPrice
+
+  return {
+    ...formatProductPrice(productWithPrice),
+    priceUi: (priceUi ?? null) as PricePromoPublicDisplay | null,
+  }
+}
+
 export function useProductByPriceId(priceId: string, options: UseProductPriceOptions = {}) {
   const { enabled = true } = options
 
   return useQuery({
     queryKey: ['product-by-price', priceId],
-    queryFn: async () => {
-      if (!priceId) {
-        throw new Error('Price ID is required')
-      }
-
-      const payload = await loadCheckoutProductByPriceAction(priceId)
-      if (!payload.ok) {
-        throw new Error(payload.error || 'Erro ao buscar produto')
-      }
-      const { product, price_ui: priceUi } = payload
-
-      // Filtrar apenas preços ativos e ordenar para colocar o selecionado primeiro
-      const activePrices = (product.prices || [])
-        .filter((price: Price) => price.active)
-        .sort((a: Price, b: Price) => {
-          if (a.id === priceId) return -1
-          if (b.id === priceId) return 1
-          return 0
-        })
-
-      const productWithPrice = {
-        ...product,
-        prices: activePrices,
-      } as ProductWithPrice
-
-      return {
-        ...formatProductPrice(productWithPrice),
-        priceUi: (priceUi ?? null) as PricePromoPublicDisplay | null,
-      }
-    },
+    queryFn: () => fetchProductWithPriceById(priceId),
     enabled: enabled && !!priceId,
+    placeholderData: keepPreviousData,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
   })

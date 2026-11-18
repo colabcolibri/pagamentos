@@ -70,8 +70,13 @@ function PolicySection({ section, index }: PolicySectionProps) {
         <span>{section.title}</span>
       </h3>
       <ul className="space-y-3">
-        {section.content
-          .filter((p) => p.trim() !== '')
+        {(Array.isArray(section.content)
+          ? section.content
+          : typeof section.content === 'string'
+            ? (section.content as string).split(/\r?\n/)
+            : []
+        )
+          .filter((p): p is string => typeof p === 'string' && p.trim() !== '')
           .map((paragraph, pIndex) => (
             <li key={pIndex} className="flex items-start gap-2">
               <CheckCircle2

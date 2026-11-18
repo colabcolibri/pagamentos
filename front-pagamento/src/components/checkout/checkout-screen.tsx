@@ -472,31 +472,14 @@ export function CheckoutScreen({
 
       {/* Main */}
       <main className="flex-1">
-        <PageContainer className="py-8 md:py-12">
-          {/* Page Header */}
-          <div className="mb-8 md:mb-12 space-y-2">
-            <h1 className="scroll-m-20 text-3xl font-bold tracking-tight text-foreground md:text-4xl">
-              {CONTENT.page.title}
-            </h1>
-            <p className="text-muted-foreground">{CONTENT.page.subtitle}</p>
-          </div>
-
-          {!showPaymentStatus && productPrices && productPrices.length > 1 && onSelectPrice ? (
-            <ProductPriceSelector
-              prices={productPrices}
-              selectedPriceId={priceId}
-              onSelectPrice={selectPlanPriceId}
-              disabled={isProcessing}
-            />
-          ) : null}
-
+        <PageContainer className="py-6 md:py-8">
           <div
             className={cn(
-              'grid min-w-0 grid-cols-1 gap-8 lg:items-start lg:gap-10',
-              showPaymentStatus ? '' : 'lg:grid-cols-[35fr_65fr]'
+              'grid min-w-0 grid-cols-1 gap-6 lg:items-start lg:gap-8',
+              showPaymentStatus ? '' : 'lg:grid-cols-[42fr_58fr]'
             )}
           >
-            {/* Esquerda: resumo (~35%) — rola com a página (sem sticky) */}
+            {/* Esquerda: resumo (~42%) */}
             {!showPaymentStatus ? (
               <CheckoutOrderPanel
                 className="min-w-0 w-full"
@@ -511,6 +494,16 @@ export function CheckoutScreen({
                 mainLineCents={mainLineCents}
                 selectedAddonsExtraCents={selectedAddonsExtraCents}
                 topicSections={topicSections}
+                planSelector={
+                  productPrices && productPrices.length > 1 && onSelectPrice ? (
+                    <ProductPriceSelector
+                      prices={productPrices}
+                      selectedPriceId={priceId}
+                      onSelectPrice={selectPlanPriceId}
+                      disabled={isProcessing}
+                    />
+                  ) : undefined
+                }
                 copy={{
                   priceLabel: CONTENT.product.priceLabel,
                   whatIncluded: CONTENT.product.whatIncluded,
@@ -520,8 +513,8 @@ export function CheckoutScreen({
               />
             ) : null}
 
-            {/* Direita: formulário / status (~65%) */}
-            <div className="min-w-0 w-full space-y-4 md:space-y-6">
+            {/* Direita: formulário / status (~58%) */}
+            <div className="min-w-0 w-full space-y-4 md:space-y-5">
               {showPaymentStatus ? (
                 <PaymentStatus
                   paymentId={paymentId}
@@ -573,7 +566,6 @@ export function CheckoutScreen({
               ) : (
                 // Formulário de checkout
                 <>
-                  <TrustIndicators className="w-full" privacyPolicyHref={brand.privacyUrl} />
                   {selectedGateway == null && gatewayAvailability != null ? (
                     <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
                       Nenhum meio de pagamento está ativo. A compra fica bloqueada até um gateway
@@ -683,6 +675,12 @@ export function CheckoutScreen({
                       </CardContent>
                     </Card>
                   )}
+
+                  <TrustIndicators
+                    variant="compact"
+                    className="w-full"
+                    privacyPolicyHref={brand.privacyUrl}
+                  />
                 </>
               )}
             </div>
