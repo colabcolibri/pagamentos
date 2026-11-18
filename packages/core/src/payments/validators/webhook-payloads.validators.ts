@@ -39,8 +39,16 @@ export const pagarmeWebhookPayloadSchema = z.object({
     .object({
       id: z.string().min(1),
       code: z.string().min(1),
+      payment_method: z.string().optional(),
+      metadata: z.record(z.string(), z.unknown()).optional(),
       charges: z.array(z.object({ payment_method: z.string().optional() })).optional(),
-      order: z.object({ code: z.string().min(1) }).optional(),
+      order: z
+        .object({
+          id: z.string().optional(),
+          code: z.string().min(1),
+          metadata: z.record(z.string(), z.unknown()).optional(),
+        })
+        .optional(),
     })
     .optional(),
 })

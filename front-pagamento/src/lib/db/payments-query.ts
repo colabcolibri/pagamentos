@@ -17,12 +17,20 @@ const FOREIGN_KEY: Record<string, string> = {
 }
 
 const IDENTIFIER = /^[a-z_][a-z0-9_]*$/
+const JSON_TEXT_PATH = /^([a-z_][a-z0-9_]*)->>([a-z_][a-z0-9_]*)$/
 
 function ident(value: string): string {
   if (!IDENTIFIER.test(value)) {
     throw new Error(`Identificador SQL inválido: ${value}`)
   }
   return value
+}
+
+function columnExpr(value: string): string {
+  if (IDENTIFIER.test(value)) return value
+  const match = JSON_TEXT_PATH.exec(value)
+  if (match) return `${match[1]}->>'${match[2]}'`
+  throw new Error(`Identificador SQL inválido: ${value}`)
 }
 
 function parseFields(source: string): Field[] {
@@ -131,18 +139,18 @@ class PaymentsQuery {
   }
 
   gte(column: string, value: unknown): this {
-    this.comparisons.push({ column: ident(column), op: '>=', value })
+    this.comparisons.push({ column: columnExpr(column), op: '>=', value })
     return this
   }
 
   in(column: string, values: unknown[]): this {
-    this.comparisons.push({ column: ident(column), op: 'in', value: values })
+    this.comparisons.push({ column: columnExpr(column), op: 'in', value: values })
     return this
   }
 
   is(column: string, value: null): this {
     if (value !== null) throw new Error('Filtro is só aceita null')
-    this.comparisons.push({ column: ident(column), op: 'is null', value: null })
+    this.comparisons.push({ column: columnExpr(column), op: 'is null', value: null })
     return this
   }
 
@@ -152,7 +160,7 @@ class PaymentsQuery {
   }
 
   eq(column: string, value: unknown): this {
-    this.filters.push({ column: ident(column), value })
+    this.filters.push({ column: columnExpr(column), value })
     return this
   }
 
