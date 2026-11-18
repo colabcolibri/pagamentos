@@ -56,31 +56,48 @@ interface WebhookPayload {
 }
 
 /**
- * Processa pagamento confirmado (order.paid)
+ * Processa pagamento confirmado (order.paid ou charge.paid)
  */
 async function processPayment(payload: WebhookPayload, supabase: any) {
-  const { id: orderId, code: paymentLinkId, charges } = payload.data;
-  const paymentMethod = charges[0]?.payment_method || 'unknown';
+  const rawData = payload.data as Record<string, any>;
+  const orderId = rawData.order?.id ?? rawData.id;
+  const paymentLinkId: string | undefined =
+    rawData.metadata?.payment_link_id ??
+    rawData.order?.metadata?.payment_link_id ??
+    (typeof rawData.code === 'string' && rawData.code.startsWith('pl_') ? rawData.code : undefined) ??
+    (typeof rawData.order?.code === 'string' && rawData.order.code.startsWith('pl_')
+      ? rawData.order.code
+      : undefined);
+  const orderCode: string | undefined = rawData.order?.code ?? rawData.code;
+  const paymentMethod: string =
+    rawData.payment_method ?? rawData.charges?.[0]?.payment_method ?? 'unknown';
 
   logger.info('Webhook Pagar.me recebido', {
     module: 'routes',
     action: 'pagarme-webhook',
-    eventType: 'order.paid',
+    eventType: payload.type,
     orderId,
     paymentLinkId,
+    orderCode,
     paymentMethod,
   });
 
-  // 1. Buscar pagamento no banco
-  const { data: paymentRecord, error: findError } = await supabase
+  // 1. Buscar pagamento no banco (prioriza payment_link_id; fallback por order_id)
+  const baseQuery = supabase
     .schema('payments')
     .from('pagarme_payments')
-    .select('id, status, order_id, subscription_id, subscriptions(id, status, user_id, price_id)')
-    .eq('payment_link_id', paymentLinkId)
-    .single();
+    .select('id, status, order_id, payment_link_id, subscription_id, subscriptions(id, status, user_id, price_id)');
+
+  const { data: paymentRecord, error: findError } = paymentLinkId
+    ? await baseQuery.eq('payment_link_id', paymentLinkId).maybeSingle()
+    : orderCode
+      ? await baseQuery.eq('order_id', orderCode).maybeSingle()
+      : { data: null, error: new Error('Identificador de pagamento ausente no payload') };
 
   if (findError || !paymentRecord) {
-    throw new Error(`Pagamento não encontrado para o link: ${paymentLinkId}`);
+    throw new Error(
+      `Pagamento não encontrado para o link/pedido: ${paymentLinkId ?? orderCode ?? 'desconhecido'}`
+    );
   }
 
   // 2. Verificar se já foi processado (idempotência)
@@ -89,7 +106,7 @@ async function processPayment(payload: WebhookPayload, supabase: any) {
       module: 'routes',
       action: 'pagarme-webhook',
       paymentId: paymentRecord.id,
-      paymentLinkId,
+      paymentLinkId: paymentRecord.payment_link_id,
     });
     return { message: 'Pagamento já processado anteriormente.', alreadyProcessed: true };
   }
@@ -105,7 +122,7 @@ async function processPayment(payload: WebhookPayload, supabase: any) {
       payment_method: paymentMethod,
       paid_at: paidAt,
     })
-    .eq('payment_link_id', paymentLinkId)
+    .eq('id', paymentRecord.id)
     .in('status', ['pending', 'pix_generated', 'boleto_generated'])
     .select('id')
     .maybeSingle();
@@ -698,7 +715,7 @@ export function createPagarmeWebhookHandler(options: PagarmeWebhookOptions): Rou
       }
 
       // 4. Processar evento
-      if (eventType === 'order.paid') {
+      if (eventType === 'order.paid' || eventType === 'charge.paid') {
         const result = await processPayment(payload, payments);
         responseMessage = result.message;
         
