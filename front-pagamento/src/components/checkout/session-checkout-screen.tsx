@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { AlertCircle, CheckCircle2, Loader2, Lock, ShieldCheck } from 'lucide-react'
 
+import { TrustIndicators } from '@/components/checkout/trust-indicators'
 import { PaymentStatus } from '@/components/payment/payment-status'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -262,7 +263,8 @@ export function SessionCheckoutScreen({ token }: { token: string }) {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8">
+    <div className="mx-auto max-w-3xl px-4 py-8 space-y-6">
+      <TrustIndicators variant="card" isEmailVerified={isOriginVerified || isCodeVerified} />
       <div className="grid gap-6 md:grid-cols-5">
         <Card className="md:col-span-2 h-fit">
           <CardHeader>

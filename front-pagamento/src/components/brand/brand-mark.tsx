@@ -34,7 +34,7 @@ export function BrandMark({
       height={36}
       priority={priority}
       unoptimized={unoptimized}
-      className={cn('mx-auto block', imageClassName, className)}
+      className={cn('mx-auto block dark:invert dark:hue-rotate-180', imageClassName, className)}
     />
   )
 }

@@ -28,6 +28,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { useGatewayAvailability } from '@/hooks/use-gateway-availability'
 import { useProductByPriceId } from '@/hooks/use-product-price'
+import { useAuthCheck } from '@/hooks/use-profile'
 import { estimateAddonCents } from '@/lib/checkout/addon-estimate'
 import { getAddonOfferDisplay } from '@/lib/checkout/addon-offer-display'
 import { checkoutProductAndPlanLine } from '@/lib/checkout/offer-display'
@@ -103,6 +104,7 @@ export function CheckoutScreen({
 }) {
   const router = useRouter()
   const brand = useBrand()
+  const authCheck = useAuthCheck()
   const originalPriceIdRef = useRef(priceId)
 
   const [showPaymentStatus, setShowPaymentStatus] = useState(false)
@@ -578,6 +580,12 @@ export function CheckoutScreen({
                       continuar.
                     </div>
                   ) : null}
+                  <TrustIndicators
+                    variant="card"
+                    className="mb-4 w-full"
+                    isEmailVerified={Boolean(authCheck.data?.user)}
+                    privacyPolicyHref={brand.privacyUrl}
+                  />
                   <CheckoutForm
                     product={productData}
                     paymentGateway={selectedGateway ?? 'asaas'}
@@ -675,12 +683,6 @@ export function CheckoutScreen({
                       </CardContent>
                     </Card>
                   )}
-
-                  <TrustIndicators
-                    variant="compact"
-                    className="w-full"
-                    privacyPolicyHref={brand.privacyUrl}
-                  />
                 </>
               )}
             </div>
