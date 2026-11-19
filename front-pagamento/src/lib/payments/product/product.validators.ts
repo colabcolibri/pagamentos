@@ -58,51 +58,89 @@ export const priceUpdateSchema = z.object({
 })
 
 export const productValidators = {
-  create: z.object({
-    name: z.string().min(1, 'Nome é obrigatório').max(255, 'Nome muito longo'),
-    ref: z.string().min(1, 'Ref é obrigatório').max(100, 'Ref muito longo'),
-    description: z.string().max(5000, 'Descrição muito longa').optional().nullable(),
-    active: z.boolean().optional(),
-    payment_methods: z.array(z.string()).optional().nullable(),
-    refund_policy: z.any().optional().nullable(), // Json type do database
-    email_config: z.any().optional().nullable(), // Json type do database
-    webhook_url: z
-      .union([z.string().url('URL inválida').max(2048), z.literal('')])
-      .optional()
-      .nullable()
-      .transform((v) => (v === '' ? null : v)),
-    webhook_secret: z
-      .string()
-      .max(256)
-      .optional()
-      .nullable()
-      .transform((v) => (v === '' ? null : v)),
-    metadata: z.any().optional().nullable(), // Json type do database
-    prices: z.array(priceCreateSchema).optional(),
-  }),
+  create: z
+    .object({
+      name: z.string().min(1, 'Nome é obrigatório').max(255, 'Nome muito longo'),
+      ref: z.string().min(1, 'Ref é obrigatório').max(100, 'Ref muito longo'),
+      description: z.string().max(5000, 'Descrição muito longa').optional().nullable(),
+      active: z.boolean().optional(),
+      payment_methods: z.array(z.string()).optional().nullable(),
+      refund_policy: z.any().optional().nullable(), // Json type do database
+      email_config: z.any().optional().nullable(), // Json type do database
+      webhook_url: z
+        .union([z.string().url('URL inválida').max(2048), z.literal('')])
+        .optional()
+        .nullable()
+        .transform((v) => (v === '' ? null : v)),
+      webhook_secret: z
+        .string()
+        .max(256)
+        .optional()
+        .nullable()
+        .transform((v) => (v === '' ? null : v)),
+      metadata: z.any().optional().nullable(), // Json type do database
+      allow_custom_amount: z.boolean().optional(),
+      min_amount_cents: z
+        .number()
+        .int()
+        .min(100, 'Valor mínimo deve ser >= 100 centavos')
+        .optional(),
+      max_amount_cents: z
+        .union([z.number().int().min(100), z.null()])
+        .optional()
+        .nullable(),
+      prices: z.array(priceCreateSchema).optional(),
+    })
+    .refine(
+      (data) =>
+        data.max_amount_cents == null || data.max_amount_cents >= (data.min_amount_cents ?? 100),
+      {
+        message: 'max_amount_cents deve ser >= min_amount_cents',
+        path: ['max_amount_cents'],
+      }
+    ),
 
-  update: z.object({
-    name: z.string().min(1, 'Nome não pode ser vazio').max(255, 'Nome muito longo').optional(),
-    ref: z.string().min(1, 'Ref não pode ser vazio').max(100, 'Ref muito longo').optional(),
-    description: z.string().max(5000, 'Descrição muito longa').optional().nullable(),
-    active: z.boolean().optional(),
-    payment_methods: z.array(z.string()).optional().nullable(),
-    refund_policy: z.any().optional().nullable(), // Json type do database
-    email_config: z.any().optional().nullable(), // Json type do database
-    webhook_url: z
-      .union([z.string().url('URL inválida').max(2048), z.literal('')])
-      .optional()
-      .nullable()
-      .transform((v) => (v === '' ? null : v)),
-    webhook_secret: z
-      .string()
-      .max(256)
-      .optional()
-      .nullable()
-      .transform((v) => (v === '' ? null : v)),
-    metadata: z.any().optional().nullable(), // Json type do database
-    prices: z.array(priceUpdateSchema).optional(),
-  }),
+  update: z
+    .object({
+      name: z.string().min(1, 'Nome não pode ser vazio').max(255, 'Nome muito longo').optional(),
+      ref: z.string().min(1, 'Ref não pode ser vazio').max(100, 'Ref muito longo').optional(),
+      description: z.string().max(5000, 'Descrição muito longa').optional().nullable(),
+      active: z.boolean().optional(),
+      payment_methods: z.array(z.string()).optional().nullable(),
+      refund_policy: z.any().optional().nullable(), // Json type do database
+      email_config: z.any().optional().nullable(), // Json type do database
+      webhook_url: z
+        .union([z.string().url('URL inválida').max(2048), z.literal('')])
+        .optional()
+        .nullable()
+        .transform((v) => (v === '' ? null : v)),
+      webhook_secret: z
+        .string()
+        .max(256)
+        .optional()
+        .nullable()
+        .transform((v) => (v === '' ? null : v)),
+      metadata: z.any().optional().nullable(), // Json type do database
+      allow_custom_amount: z.boolean().optional(),
+      min_amount_cents: z
+        .number()
+        .int()
+        .min(100, 'Valor mínimo deve ser >= 100 centavos')
+        .optional(),
+      max_amount_cents: z
+        .union([z.number().int().min(100), z.null()])
+        .optional()
+        .nullable(),
+      prices: z.array(priceUpdateSchema).optional(),
+    })
+    .refine(
+      (data) =>
+        data.max_amount_cents == null || data.max_amount_cents >= (data.min_amount_cents ?? 100),
+      {
+        message: 'max_amount_cents deve ser >= min_amount_cents',
+        path: ['max_amount_cents'],
+      }
+    ),
 
   get: z.object({
     active: z.preprocess(

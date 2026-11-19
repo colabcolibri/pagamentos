@@ -94,6 +94,9 @@ export interface Product {
   webhook_url: string | null
   webhook_secret: string | null
   metadata: Json | null
+  allow_custom_amount?: boolean
+  min_amount_cents?: number
+  max_amount_cents?: number | null
   created_at: string | null
   updated_at: string | null
   prices?: Price[]
@@ -172,6 +175,9 @@ export interface CreateProductDTO {
   webhook_url?: string | null
   webhook_secret?: string | null
   metadata?: Json | null
+  allow_custom_amount?: boolean
+  min_amount_cents?: number
+  max_amount_cents?: number | null
   prices?: CreatePriceDTO[]
 }
 
@@ -189,6 +195,9 @@ export interface UpdateProductDTO {
   webhook_url?: string | null
   webhook_secret?: string | null
   metadata?: Json | null
+  allow_custom_amount?: boolean
+  min_amount_cents?: number
+  max_amount_cents?: number | null
   prices?: UpdatePriceDTO[]
 }
 

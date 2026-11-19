@@ -21,6 +21,7 @@ import {
 
 import { useBrand } from '@/components/brand/brand-provider'
 import { LogoutButton } from '@/components/logout-button'
+import { ThemeToggle } from '@/components/theme-toggle'
 import {
   Sidebar,
   SidebarContent,
@@ -152,6 +153,7 @@ export function AppSidebar() {
               </span>
               <span className="text-xs text-muted-foreground truncate">{CONTENT.subtitle}</span>
             </div>
+            <ThemeToggle className="h-8 w-8 shrink-0" />
           </div>
         </div>
       </SidebarHeader>

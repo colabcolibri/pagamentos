@@ -61,8 +61,9 @@ export class PostgresProductRepository implements ProductRepository {
     const inserted = await getPool().query<{ id: string }>(
       `INSERT INTO payments.products (
          name, ref, description, active, payment_methods, refund_policy,
-         email_config, webhook_url, webhook_secret, metadata
-       ) VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8, $9, $10::jsonb)
+         email_config, webhook_url, webhook_secret, metadata,
+         allow_custom_amount, min_amount_cents, max_amount_cents
+       ) VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8, $9, $10::jsonb, $11, $12, $13)
        RETURNING id`,
       [
         data.name,
@@ -75,6 +76,9 @@ export class PostgresProductRepository implements ProductRepository {
         data.webhook_url ?? null,
         encryptStoredSecret(data.webhook_secret) ?? null,
         json(data.metadata ?? {}),
+        data.allow_custom_amount ?? false,
+        data.min_amount_cents ?? 100,
+        data.max_amount_cents ?? null,
       ]
     )
     const product = await this.findById(inserted.rows[0]!.id)
@@ -132,6 +136,10 @@ export class PostgresProductRepository implements ProductRepository {
     if (fields.refund_policy !== undefined) set('refund_policy', fields.refund_policy, true)
     if (fields.email_config !== undefined) set('email_config', fields.email_config, true)
     if (fields.webhook_url !== undefined) set('webhook_url', fields.webhook_url)
+    if (fields.allow_custom_amount !== undefined)
+      set('allow_custom_amount', fields.allow_custom_amount)
+    if (fields.min_amount_cents !== undefined) set('min_amount_cents', fields.min_amount_cents)
+    if (fields.max_amount_cents !== undefined) set('max_amount_cents', fields.max_amount_cents)
     if (
       fields.webhook_secret !== undefined &&
       fields.webhook_secret !== '••••••••' &&

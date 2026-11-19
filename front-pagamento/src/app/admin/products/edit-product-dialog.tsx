@@ -41,6 +41,22 @@ type FormData = {
   payment_methods: string[]
   webhook_url: string
   webhook_secret: string
+  allow_custom_amount: boolean
+  min_amount_reais: string
+  max_amount_reais: string
+}
+
+function centsToReaisInput(cents: number | null | undefined): string {
+  if (cents == null) return ''
+  return (cents / 100).toFixed(2).replace('.', ',')
+}
+
+function reaisInputToCents(raw: string): number | null {
+  const cleaned = raw.trim().replace(/\s+/g, '').replace(',', '.')
+  if (!cleaned) return null
+  const num = Number(cleaned)
+  if (!Number.isFinite(num)) return null
+  return Math.round(num * 100)
 }
 
 function getEmptyFormData(): FormData {
@@ -53,6 +69,9 @@ function getEmptyFormData(): FormData {
     payment_methods: [...DEFAULT_PAYMENT_METHODS],
     webhook_url: '',
     webhook_secret: '',
+    allow_custom_amount: false,
+    min_amount_reais: '1,00',
+    max_amount_reais: '',
   }
 }
 
@@ -79,6 +98,9 @@ function productToFormData(product: Product): FormData {
     payment_methods: product.payment_methods || [...DEFAULT_PAYMENT_METHODS],
     webhook_url: product.webhook_url || '',
     webhook_secret: product.webhook_secret ? '••••••••' : '',
+    allow_custom_amount: Boolean(product.allow_custom_amount),
+    min_amount_reais: centsToReaisInput(product.min_amount_cents ?? 100),
+    max_amount_reais: centsToReaisInput(product.max_amount_cents),
   }
 }
 
@@ -253,6 +275,8 @@ export function EditProductDialog({
         formData.admin_group
       )
 
+      const minAmountCents = Math.max(100, reaisInputToCents(formData.min_amount_reais) ?? 100)
+      const parsedMax = reaisInputToCents(formData.max_amount_reais)
       const data = {
         name: formData.name,
         ref: formData.ref,
@@ -262,6 +286,9 @@ export function EditProductDialog({
         refund_policy: refundPolicy as unknown as Product['refund_policy'],
         email_config: emailConfig as unknown as Product['email_config'],
         webhook_url: formData.webhook_url.trim() || null,
+        allow_custom_amount: formData.allow_custom_amount,
+        min_amount_cents: minAmountCents,
+        max_amount_cents: parsedMax,
         ...(isCreate ? (metadata !== null ? { metadata } : {}) : { metadata }),
         ...(webhookSecretValue !== undefined && { webhook_secret: webhookSecretValue }),
       }
@@ -514,6 +541,58 @@ export function EditProductDialog({
                       onCheckedChange={(checked) => updateField('active', checked)}
                       className="shrink-0"
                     />
+                  </div>
+
+                  <div className="space-y-3 border-b border-border/60 py-3.5 min-w-0">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="space-y-0.5 min-w-0 flex-1">
+                        <FieldLabel htmlFor="allow_custom_amount" className="text-sm font-medium">
+                          Permitir valor flexível via API (Checkout Session)
+                        </FieldLabel>
+                        <p className="text-xs text-muted-foreground">
+                          Habilita cobranças dinâmicas (ex.: pró-rata) enviadas por sistemas
+                          integrados com API key.
+                        </p>
+                      </div>
+                      <Switch
+                        id="allow_custom_amount"
+                        checked={formData.allow_custom_amount}
+                        onCheckedChange={(checked) => updateField('allow_custom_amount', checked)}
+                        className="shrink-0"
+                      />
+                    </div>
+                    {formData.allow_custom_amount && (
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pt-1">
+                        <Field>
+                          <FieldLabel htmlFor="min_amount_reais">Valor mínimo (R$)</FieldLabel>
+                          <Input
+                            id="min_amount_reais"
+                            inputMode="decimal"
+                            placeholder="1,00"
+                            value={formData.min_amount_reais}
+                            onChange={(e) => updateField('min_amount_reais', e.target.value)}
+                          />
+                          <FieldDescription>
+                            Em reais (ex.: 1,00 ou 10,50). Piso mínimo: R$ 1,00.
+                          </FieldDescription>
+                        </Field>
+                        <Field>
+                          <FieldLabel htmlFor="max_amount_reais">
+                            Valor máximo (R$, opcional)
+                          </FieldLabel>
+                          <Input
+                            id="max_amount_reais"
+                            inputMode="decimal"
+                            placeholder="Sem teto"
+                            value={formData.max_amount_reais}
+                            onChange={(e) => updateField('max_amount_reais', e.target.value)}
+                          />
+                          <FieldDescription>
+                            Em reais (ex.: 500,00). Deixe vazio para sem teto.
+                          </FieldDescription>
+                        </Field>
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-3 min-w-0 pt-1">

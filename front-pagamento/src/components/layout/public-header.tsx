@@ -5,6 +5,7 @@ import Link from 'next/link'
 
 import { BrandMark } from '@/components/brand/brand-mark'
 import { LogoutButton } from '@/components/logout-button'
+import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuthCheck } from '@/hooks/use-profile'
@@ -128,6 +129,7 @@ export function PublicHeader({ logo, navItems, actions, className }: PublicHeade
         )}
 
         <div className="ml-auto flex items-center gap-2 shrink-0 min-w-0 max-w-[min(100%,28rem)] sm:max-w-none justify-end">
+          <ThemeToggle className="h-8 w-8 shrink-0" />
           {actions ?? <PublicHeaderAuthActions />}
         </div>
       </div>

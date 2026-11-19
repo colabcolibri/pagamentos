@@ -4,6 +4,7 @@
 import { createAsaasWebhookHandler } from '@quitou/core'
 import { sendPaymentConfirmedProductWebhook } from '@quitou/core/product-webhook'
 
+import { completeCheckoutSessionForOrder } from '@/lib/checkout-sessions/webhook-complete'
 import { createPaymentsQueryClient } from '@/lib/db/payments-query'
 import { getPool } from '@/lib/db/pool'
 import { sendPaymentConfirmedEmailFromOrder } from '@/lib/email-helpers'
@@ -30,8 +31,11 @@ const handler = createAsaasWebhookHandler({
   onSuccess: async (payment: any) => {
     getLogger().info('Webhook Asaas processado com sucesso')
     if (payment?.order_id) {
+      const sessionResult = await completeCheckoutSessionForOrder(payment.order_id)
       await sendPaymentConfirmedEmailFromOrder(supabase, payment.order_id)
-      await sendPaymentConfirmedProductWebhook(supabase, payment.order_id)
+      if (!sessionResult.customWebhookSent) {
+        await sendPaymentConfirmedProductWebhook(supabase, payment.order_id)
+      }
     }
   },
   onError: async (error: Error) => {

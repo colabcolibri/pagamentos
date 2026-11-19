@@ -75,6 +75,9 @@ type ProductRow = {
   metadata: Json | null
   webhook_url: string | null
   webhook_secret: string | null
+  allow_custom_amount: boolean | null
+  min_amount_cents: number | null
+  max_amount_cents: number | null
   created_at: string | null
   updated_at: string | null
   prices: PriceRow[] | null
@@ -104,7 +107,8 @@ const PRODUCT_SQL = `
 SELECT
   p.id, p.ref, p.name, p.description, p.active, p.payment_methods,
   p.refund_policy, p.email_config, p.webhook_url, p.webhook_secret,
-  p.metadata, p.created_at, p.updated_at,
+  p.metadata, p.allow_custom_amount, p.min_amount_cents, p.max_amount_cents,
+  p.created_at, p.updated_at,
   COALESCE((
     SELECT json_agg(price_row ORDER BY price_row.created_at)
     FROM (
@@ -233,6 +237,9 @@ function mapProducts(
       webhook_url: includeWebhook ? row.webhook_url : null,
       webhook_secret: includeWebhook ? decryptStoredSecret(row.webhook_secret) : null,
       metadata: row.metadata || null,
+      allow_custom_amount: row.allow_custom_amount ?? false,
+      min_amount_cents: row.min_amount_cents ?? 100,
+      max_amount_cents: row.max_amount_cents ?? null,
       created_at: row.created_at,
       updated_at: row.updated_at,
       prices,

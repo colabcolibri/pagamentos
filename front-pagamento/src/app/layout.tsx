@@ -6,6 +6,7 @@ import { BrandProvider } from '@/components/brand/brand-provider'
 import { FaleConoscoFab } from '@/components/fale-conosco/fale-conosco-fab'
 import { Toast } from '@/components/layout/ui/toast'
 import { QueryProvider } from '@/components/providers/query-provider'
+import { ThemeProvider } from '@/components/providers/theme-provider'
 import { loadRuntimeBrandConfig } from '@/lib/platform/instance-config'
 
 import './globals.css'
@@ -40,16 +41,18 @@ export default async function RootLayout({
 }>) {
   const brand = await loadRuntimeBrandConfig()
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <UmamiScript />
-        <BrandProvider brand={brand}>
-          <QueryProvider>
-            {children}
-            <Toast />
-            <FaleConoscoFab />
-          </QueryProvider>
-        </BrandProvider>
+        <ThemeProvider>
+          <UmamiScript />
+          <BrandProvider brand={brand}>
+            <QueryProvider>
+              {children}
+              <Toast />
+              <FaleConoscoFab />
+            </QueryProvider>
+          </BrandProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

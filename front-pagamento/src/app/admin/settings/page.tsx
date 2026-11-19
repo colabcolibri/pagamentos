@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import {
   AlertCircle,
   Bell,
+  BookOpen,
   Bot,
   Building2,
   CheckCircle2,
@@ -21,10 +22,12 @@ import {
 
 import { AdminPageLayout } from '@/components/admin/admin-page-layout'
 import { BrandSettingsCard } from '@/components/admin/brand-settings-card'
+import { CheckoutKeysCard } from '@/components/admin/checkout-keys-card'
 import { DevSeedCard } from '@/components/admin/dev-seed-card'
 import { EmailSmtpSettingsCard } from '@/components/admin/email-smtp-settings-card'
 import { GatewaySettingsCard } from '@/components/admin/gateway-settings-card'
 import { IntegrationKeysCard } from '@/components/admin/integration-keys-card'
+import { IntegrationManualCard } from '@/components/admin/integration-manual-card'
 import { McpSettingsCard } from '@/components/admin/mcp-settings-card'
 import { SaleNotificationsCard } from '@/components/admin/sale-notifications-card'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -79,6 +82,7 @@ type SettingsTabId =
   | 'notifications'
   | 'integrations'
   | 'mcp'
+  | 'manual'
   | 'connections'
 
 const SETTINGS_TABS: {
@@ -122,6 +126,12 @@ const SETTINGS_TABS: {
     label: 'MCP (Agentes IA)',
     description: 'Permissões e tokens OAuth',
     icon: Bot,
+  },
+  {
+    id: 'manual',
+    label: 'Manual de Integração',
+    description: 'Guia técnico, pró-rata e S2S',
+    icon: BookOpen,
   },
   {
     id: 'connections',
@@ -259,9 +269,16 @@ function AdminSettingsContent() {
 
           {activeTab === 'notifications' && <SaleNotificationsCard />}
 
-          {activeTab === 'integrations' && <IntegrationKeysCard />}
+          {activeTab === 'integrations' && (
+            <div className="space-y-6">
+              <IntegrationKeysCard />
+              <CheckoutKeysCard />
+            </div>
+          )}
 
           {activeTab === 'mcp' && <McpSettingsCard />}
+
+          {activeTab === 'manual' && <IntegrationManualCard />}
 
           {activeTab === 'connections' && (
             <Card>

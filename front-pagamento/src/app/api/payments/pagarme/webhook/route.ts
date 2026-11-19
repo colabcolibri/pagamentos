@@ -4,6 +4,7 @@
 import { createPagarmeWebhookHandler } from '@quitou/core'
 import { sendPaymentConfirmedProductWebhook } from '@quitou/core/product-webhook'
 
+import { completeCheckoutSessionForOrder } from '@/lib/checkout-sessions/webhook-complete'
 import { createPaymentsQueryClient } from '@/lib/db/payments-query'
 import { getPool } from '@/lib/db/pool'
 import {
@@ -57,8 +58,11 @@ const handler = createPagarmeWebhookHandler({
     getLogger().info('Webhook Pagar.me processado com sucesso (order.paid)')
     // Enviar email de pagamento confirmado se tiver order_id
     if (payment?.order_id) {
+      const sessionResult = await completeCheckoutSessionForOrder(payment.order_id)
       await sendPaymentConfirmedEmailFromOrder(supabase, payment.order_id, payment.webhook_event_id)
-      await sendPaymentConfirmedProductWebhook(supabase, payment.order_id)
+      if (!sessionResult.customWebhookSent) {
+        await sendPaymentConfirmedProductWebhook(supabase, payment.order_id)
+      }
     }
   },
   onError: async (error: Error) => {
