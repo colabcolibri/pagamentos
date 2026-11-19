@@ -7,6 +7,7 @@ import { resolveCheckoutCustomerProfile } from './customer-profile'
 import { verifySessionEmailProof } from './email-proof'
 import { createPagarmePaymentForOrder } from './gateway-payment'
 import { CheckoutSessionError } from './service'
+import { assertAndLockCatalogPriceStock } from './stock-reservation'
 import type { CheckoutSessionPricingMode, CheckoutSessionStatus } from './types'
 
 export interface SessionCheckoutRequestBody {
@@ -93,6 +94,9 @@ export async function resolveAndLockCheckoutSession(
     const emailChanged = Boolean(
       cs.customer_email && requestEmail !== cs.customer_email.toLowerCase()
     )
+    if (cs.email_verified_by_origin && emailChanged) {
+      throw new CheckoutSessionError(403, 'O e-mail desta sessão está travado pela origem')
+    }
     const hasCodeProof = verifySessionEmailProof(cs.id, requestEmail, body.email_verification_proof)
 
     if (!cs.email_verified_by_origin || emailChanged) {
@@ -118,27 +122,11 @@ export async function resolveAndLockCheckoutSession(
       if (!targetPriceId) {
         throw new CheckoutSessionError(400, 'Selecione um plano válido')
       }
-      const priceRes = await client.query<{
-        id: string
-        product_id: string
-        amount: number
-        active: boolean
-        stock_cap: number | null
-        stock_sold: number
-      }>(
-        `SELECT id, product_id, amount, active, stock_cap, stock_sold
-         FROM payments.prices
-         WHERE id = $1
-         LIMIT 1`,
-        [targetPriceId]
-      )
-      const price = priceRes.rows[0]
-      if (!price || !price.active || price.product_id !== cs.product_id) {
-        throw new CheckoutSessionError(422, 'Plano selecionado não pertence a esta sessão')
-      }
-      if (price.stock_cap != null && price.stock_sold >= price.stock_cap) {
-        throw new CheckoutSessionError(409, 'Vagas esgotadas para este plano')
-      }
+      const price = await assertAndLockCatalogPriceStock(client, {
+        priceId: targetPriceId,
+        expectedProductId: cs.product_id,
+        excludeSessionId: cs.id,
+      })
       resolvedPriceId = price.id
       resolvedAmountCents = price.amount
     }

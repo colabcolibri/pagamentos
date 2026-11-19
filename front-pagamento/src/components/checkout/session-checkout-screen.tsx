@@ -327,13 +327,22 @@ export function SessionCheckoutScreen({ token }: { token: string }) {
                   id="session-email"
                   type="email"
                   required
+                  readOnly={Boolean(session.emailVerifiedByOrigin && session.customerEmail)}
+                  className={
+                    session.emailVerifiedByOrigin && session.customerEmail
+                      ? 'bg-muted cursor-not-allowed'
+                      : undefined
+                  }
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    if (session.emailVerifiedByOrigin && session.customerEmail) return
+                    setEmail(e.target.value)
+                  }}
                 />
                 {isOriginVerified && (
                   <p className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
                     <ShieldCheck className="h-3.5 w-3.5" />
-                    Identidade confirmada pelo sistema de origem
+                    Identidade confirmada e travada pela origem
                   </p>
                 )}
               </div>

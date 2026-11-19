@@ -361,6 +361,35 @@ describe('Checkout Sessions Security Suite (US-0056)', () => {
       userId: 'ext-user-1',
       checkoutSessionId: 'sess-lock',
     })
+
+    // Tentativa de trocar e-mail quando email_verified_by_origin = true deve retornar 403
+    mockClientQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 'sess-lock',
+          product_id: 'p1',
+          price_id: null,
+          pricing_mode: 'custom',
+          amount_cents: 8900,
+          customer_email: 'buyer@example.com',
+          customer_name: 'Buyer',
+          email_verified_by_origin: true,
+          metadata: {},
+          success_url: null,
+          status: 'open',
+          order_id: null,
+          expires_at: new Date(Date.now() + 60_000).toISOString(),
+          product_name: 'Add-on',
+          product_active: true,
+        },
+      ],
+    })
+    await expect(
+      resolveAndLockCheckoutSession({
+        checkoutSessionToken: 'valid-token-123456',
+        customer_info: { email: 'other@example.com' },
+      })
+    ).rejects.toMatchObject({ status: 403 })
   })
 
   it('token de checkout session NÃO autentica GET /api/profile (401)', async () => {

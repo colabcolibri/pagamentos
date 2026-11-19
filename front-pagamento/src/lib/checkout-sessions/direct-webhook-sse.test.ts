@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { POST as postDirectCheckout } from '@/app/api/v1/checkout/direct/route'
+import { GET as getMirrorProduct } from '@/app/api/v1/checkout/products/[slug]/route'
 import { GET as getS2sSse } from '@/app/api/v1/checkout/sessions/[id]/events/route'
 
 import { hashCheckoutSecret } from './api-keys'
 import { createSessionStatusSseStream } from './status-stream'
+import { assertAndLockCatalogPriceStock } from './stock-reservation'
 import { signOutboundWebhookPayload } from './webhook-complete'
 import { recordAndDeliverWebhook, retryWebhookDeliveryById } from './webhook-deliveries'
 
@@ -230,5 +232,39 @@ describe('Direct Checkout, Webhook Deliveries & SSE (US-0062)', () => {
     expect(text).not.toContain('email')
     const done = await reader.read()
     expect(done.done).toBe(true)
+  })
+
+  it('assertAndLockCatalogPriceStock bloqueia com 409 quando stock_sold + stock_reserved >= stock_cap', async () => {
+    mockClientQuery
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 'price-1',
+            product_id: 'prod-1',
+            amount: 9900,
+            active: true,
+            stock_cap: 10,
+            stock_sold: 8,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [{ reserved_count: '2' }] })
+
+    await expect(
+      assertAndLockCatalogPriceStock(
+        { query: mockClientQuery } as unknown as Parameters<
+          typeof assertAndLockCatalogPriceStock
+        >[0],
+        { priceId: 'price-1', expectedProductId: 'prod-1' }
+      )
+    ).rejects.toMatchObject({ status: 409 })
+  })
+
+  it('GET /api/v1/checkout/products/[slug] exige API key (401)', async () => {
+    const res401 = await getMirrorProduct(
+      new Request('http://localhost/api/v1/checkout/products/curso-teste'),
+      { params: Promise.resolve({ slug: 'curso-teste' }) }
+    )
+    expect(res401.status).toBe(401)
   })
 })

@@ -323,8 +323,10 @@ Para manter rastreabilidade e nunca perder chamadas ou webhooks no seu sistema, 
 CREATE TABLE IF NOT EXISTS payment_intents (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   external_user_id text NOT NULL,
+  customer_email text NOT NULL,
   product_slug text NOT NULL,
   pricing_mode text NOT NULL,
+  price_ref text,
   amount_cents integer NOT NULL,
   idempotency_key text NOT NULL UNIQUE,
   quitou_session_id uuid,
@@ -342,11 +344,20 @@ CREATE TABLE IF NOT EXISTS payment_webhook_events (
 );
 \`\`\`
 
-### Fluxo completo do Mini Plugin (4 passos)
+### Fluxo completo do Mini Plugin (Vitrine + Login + Modal Espelho + Checkout)
 
-1. **Criar intenção local:** grave uma linha em \`payment_intents\` com \`idempotency_key\` único antes de chamar o Quitou.
-2. **Chamar o Quitou S2S:** envie \`POST /api/v1/checkout/sessions\` (modo hospedado) ou \`POST /api/v1/checkout/direct\` (1-step) com \`Idempotency-Key\` e \`x-api-key\`, salvando \`quitou_session_id\` e \`payment_url\`.
-3. **Acompanhar na UI via SSE:** conecte sua tela ao stream SSE (via BFF usando \`GET /api/v1/checkout/sessions/[id]/events\`) para mostrar confirmação instantânea ao usuário.
-4. **Liberar acesso no Webhook:** no endpoint receptor do webhook, valide \`X-Quitou-Signature\` (HMAC-SHA256), insira \`eventId\` em \`payment_webhook_events\` dentro de uma transação, atualize \`payment_intents.status = 'paid'\` e libere o benefício. Se o seu servidor ficar fora do ar, o Admin do Quitou (\`Admin → Webhooks\`) guarda a entrega em \`webhook_deliveries\` para reenvio seguro com o mesmo \`eventId\`.
+0. **Vitrine pública e Espelho do Produto (\`GET ${cleanBase}/api/v1/checkout/products/<productSlug>\`):**
+   - O backend/BFF do sistema externo consulta esse endpoint com \`x-api-key\` para exibir na página pública ou no modal:
+     - \`payment_methods\` (cartão, PIX, boleto aceitos),
+     - \`refund_policy\` (**termos de compra / política de reembolso** para aceite no modal),
+     - \`allow_custom_amount\`, \`min_amount_cents\`, \`max_amount_cents\`,
+     - \`prices\` ativos com \`promo_tiers\`, \`metadata\`, \`stock_cap\`, \`stock_sold\`, **\`stock_reserved\`** (reservas ativas em \`paying\`) e **\`stock_available\`** (vagas realmente livres).
+1. **Gate de autenticação no sistema externo (ao clicar em pagar):**
+   - Se o usuário **não estiver logado**, o sistema externo solicita o login próprio antes de abrir o modal de pagamento.
+   - **Regra crítica anti-spoofing:** o backend que cria a intenção **nunca** aceita \`email\` ou \`userId\` vindos do body do navegador — ele extrai \`external_user_id\` e \`customer_email\` **diretamente da sessão autenticada no servidor** e só então envia \`customer.emailVerifiedByOrigin = true\`.
+2. **Criar intenção local:** grave uma linha em \`payment_intents\` com \`external_user_id\`, \`customer_email\` e \`idempotency_key\` único antes de chamar o Quitou.
+3. **Chamar o Quitou S2S:** envie \`POST /api/v1/checkout/sessions\` (modo hospedado) ou \`POST /api/v1/checkout/direct\` (1-step) com \`Idempotency-Key\` e \`x-api-key\`, salvando \`quitou_session_id\` e \`payment_url\`. O Quitou faz lock \`FOR UPDATE\` no preço e bloqueia com \`409\` se \`stock_sold + stock_reserved >= stock_cap\`.
+4. **Acompanhar na UI via SSE:** conecte sua tela ao stream SSE (via BFF usando \`GET /api/v1/checkout/sessions/[id]/events\`) para mostrar confirmação instantânea ao usuário.
+5. **Liberar acesso no Webhook:** no endpoint receptor do webhook, valide \`X-Quitou-Signature\` (HMAC-SHA256), insira \`eventId\` em \`payment_webhook_events\` dentro de uma transação, atualize \`payment_intents.status = 'paid'\` e libere o benefício. Se o seu servidor ficar fora do ar, o Admin do Quitou (\`Admin → Webhooks\`) guarda a entrega em \`webhook_deliveries\` para reenvio seguro com o mesmo \`eventId\`.
 `
 }

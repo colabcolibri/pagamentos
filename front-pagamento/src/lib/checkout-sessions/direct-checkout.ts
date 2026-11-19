@@ -6,6 +6,7 @@ import { hashCheckoutSecret } from './api-keys'
 import { resolveCheckoutCustomerProfile } from './customer-profile'
 import { createPagarmePaymentForOrder } from './gateway-payment'
 import { type AuthenticatedApiKey, CheckoutSessionError, isValidRedirectUrl } from './service'
+import { assertAndLockCatalogPriceStock } from './stock-reservation'
 import type { CheckoutCustomerAddress, CheckoutSessionPricingMode } from './types'
 
 const MAX_METADATA_BYTES = 8 * 1024
@@ -209,6 +210,13 @@ export async function createDirectCheckout(
   const customerEmail = input.customer.email.trim().toLowerCase()
 
   const created = await withTransaction(async (client) => {
+    if (resolvedPriceId) {
+      await assertAndLockCatalogPriceStock(client, {
+        priceId: resolvedPriceId,
+        expectedProductId: product.id,
+      })
+    }
+
     const profile = await resolveCheckoutCustomerProfile(client, {
       email: customerEmail,
       name: input.customer.name,
