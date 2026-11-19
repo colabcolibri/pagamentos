@@ -37,6 +37,32 @@ export function SessionCheckoutScreen({ token }: { token: string }) {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [paymentId, setPaymentId] = useState<string | null>(null)
   const [paymentLinkUrl, setPaymentLinkUrl] = useState<string | null>(null)
+  const [ssePaid, setSsePaid] = useState(false)
+
+  useEffect(() => {
+    if (!paymentId || ssePaid) return
+    const es = new EventSource(`/api/checkout/sessions/${encodeURIComponent(token)}/events`)
+    es.addEventListener('status', (evt) => {
+      try {
+        const data = JSON.parse((evt as MessageEvent).data) as {
+          paid?: boolean
+          successUrl?: string | null
+        }
+        if (data.paid) {
+          setSsePaid(true)
+          es.close()
+          if (data.successUrl) {
+            window.location.href = data.successUrl
+          }
+        }
+      } catch {
+        // ignore parse errors
+      }
+    })
+    return () => {
+      es.close()
+    }
+  }, [paymentId, ssePaid, token])
 
   useEffect(() => {
     let active = true

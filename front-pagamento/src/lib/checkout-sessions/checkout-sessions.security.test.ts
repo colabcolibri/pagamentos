@@ -340,7 +340,7 @@ describe('Checkout Sessions Security Suite (US-0056)', () => {
         ],
       })
       .mockResolvedValueOnce({
-        rows: [{ id: 'prof-1', name: 'Buyer', cpf: '11122233344' }],
+        rows: [{ id: 'prof-1', name: 'Buyer', document: '11122233344', company_document: null }],
       })
       .mockResolvedValueOnce({ rows: [] }) // INSERT orders
       .mockResolvedValueOnce({ rows: [] }) // UPDATE checkout_sessions
@@ -403,6 +403,8 @@ describe('Checkout Sessions Security Suite (US-0056)', () => {
           },
         ],
       })
+      .mockResolvedValueOnce({ rows: [{ id: 'del-99', status: 'pending', attempts: 0 }] })
+      .mockResolvedValueOnce({ rows: [] })
 
     const result = await completeCheckoutSessionForOrder('order-99')
     expect(result.closedSessionId).toBe('sess-99')

@@ -127,7 +127,10 @@ export async function getPublicCheckoutSessionByToken(
   let requiresCpf = true
   if (row.customer_email) {
     const profileRes = await pool.query<{ has_cpf: boolean }>(
-      `SELECT (cpf IS NOT NULL AND length(trim(cpf)) >= 11) AS has_cpf
+      `SELECT (
+         (document IS NOT NULL AND length(trim(document)) >= 11)
+         OR (company_document IS NOT NULL AND length(trim(company_document)) >= 14)
+       ) AS has_cpf
        FROM payments.profiles
        WHERE lower(email) = $1
        LIMIT 1`,

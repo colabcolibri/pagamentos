@@ -239,5 +239,114 @@ export function verificarAssinaturaQuitou(
 \`\`\`
 
 > **Idempotência no receptor:** sempre registre \`eventId\` (ou \`checkoutSessionId\`) em uma tabela/constraint única no seu sistema para garantir que reenvios do webhook não concedam o benefício duas vezes.
+
+---
+
+## 8. Direct Checkout S2S (1-Step: \`POST /api/v1/checkout/direct\`)
+
+Quando o sistema externo já coletou (ou já possui no cadastro) **plano/valor, CPF/CNPJ, endereço e forma de pagamento (\`PIX\`, \`CREDIT_CARD\` ou \`BOLETO\`)**, é possível criar a sessão, o pedido e o link direto de pagamento em **uma única chamada server-to-server**:
+
+\`POST ${cleanBase}/api/v1/checkout/direct\`
+
+\`\`\`json
+{
+  "productSlug": "plano-pro",
+  "pricingMode": "catalog",
+  "priceRef": "plano-pro-anual",
+  "billingType": "PIX",
+  "installments": 1,
+  "customer": {
+    "email": "cliente@example.com",
+    "name": "Nome do Cliente",
+    "document": "12345678909",
+    "emailVerifiedByOrigin": true,
+    "address": {
+      "cep": "01310100",
+      "street": "Av. Paulista",
+      "number": "1000",
+      "city": "Sao Paulo",
+      "state": "SP"
+    }
+  },
+  "metadata": {
+    "externalUserId": "usr_9f8a",
+    "externalOrderId": "ord_456"
+  }
+}
+\`\`\`
+
+### Resposta (Zero PII — nunca devolve CPF, CNPJ ou endereço)
+
+\`\`\`json
+{
+  "sessionId": "550e8400-e29b-41d4-a716-446655440000",
+  "orderId": "order-uuid",
+  "paymentId": "pay-uuid",
+  "paymentUrl": "https://gateway.example.com/pay/...",
+  "checkoutUrl": "https://gateway.example.com/pay/...",
+  "amountCents": 18500,
+  "expiresAt": "2026-11-19T01:00:00.000Z",
+  "reused": false
+}
+\`\`\`
+
+> **Regras fiscais no Direct Checkout:** \`customer.document\` (CPF 11 dígitos ou CNPJ 14 dígitos) é obrigatório para criar clientes novos no gateway; \`customer.address\` é opcional para PIX/Cartão e **obrigatório** quando \`billingType === "BOLETO"\`.
+
+---
+
+## 9. Atualização em Tempo Real na Tela via SSE (\`text/event-stream\`)
+
+Enquanto o **Webhook (\`payment.confirmed\`)** avisa o seu **backend**, o **SSE** avisa a **tela do usuário** no momento em que o pagamento for confirmado (ideal para PIX):
+
+- **Público (por token da sessão):** \`GET ${cleanBase}/api/checkout/sessions/<token>/events\`
+- **Server-to-Server (por \`sessionId\` com \`x-api-key\`):** \`GET ${cleanBase}/api/v1/checkout/sessions/<sessionId>/events\`
+
+\`\`\`ts
+// Exemplo no frontend ou BFF ouvindo SSE sem expor PII
+const es = new EventSource('/api/payments/status-stream?sessionId=' + sessionId)
+es.addEventListener('status', (evt) => {
+  const data = JSON.parse(evt.data) // { status, paid, amountCents, completedAt, successUrl }
+  if (data.paid) {
+    es.close()
+    window.location.href = '/pagamento/confirmado'
+  }
+})
+\`\`\`
+
+---
+
+## 10. Como Criar o Mini Plugin de Conexão no Sistema Externo
+
+Para manter rastreabilidade e nunca perder chamadas ou webhooks no seu sistema, crie duas tabelas simples no banco do sistema consumidor:
+
+\`\`\`sql
+CREATE TABLE IF NOT EXISTS payment_intents (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  external_user_id text NOT NULL,
+  product_slug text NOT NULL,
+  pricing_mode text NOT NULL,
+  amount_cents integer NOT NULL,
+  idempotency_key text NOT NULL UNIQUE,
+  quitou_session_id uuid,
+  quitou_order_id uuid,
+  payment_url text,
+  status text NOT NULL DEFAULT 'pending', -- pending | paid | expired
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS payment_webhook_events (
+  event_id text PRIMARY KEY,
+  quitou_session_id uuid,
+  received_at timestamptz NOT NULL DEFAULT now()
+);
+\`\`\`
+
+### Fluxo completo do Mini Plugin (4 passos)
+
+1. **Criar intenção local:** grave uma linha em \`payment_intents\` com \`idempotency_key\` único antes de chamar o Quitou.
+2. **Chamar o Quitou S2S:** envie \`POST /api/v1/checkout/sessions\` (modo hospedado) ou \`POST /api/v1/checkout/direct\` (1-step) com \`Idempotency-Key\` e \`x-api-key\`, salvando \`quitou_session_id\` e \`payment_url\`.
+3. **Acompanhar na UI via SSE:** conecte sua tela ao stream SSE (via BFF usando \`GET /api/v1/checkout/sessions/[id]/events\`) para mostrar confirmação instantânea ao usuário.
+4. **Liberar acesso no Webhook:** no endpoint receptor do webhook, valide \`X-Quitou-Signature\` (HMAC-SHA256), insira \`eventId\` em \`payment_webhook_events\` dentro de uma transação, atualize \`payment_intents.status = 'paid'\` e libere o benefício. Se o seu servidor ficar fora do ar, o Admin do Quitou (\`Admin → Webhooks\`) guarda a entrega em \`webhook_deliveries\` para reenvio seguro com o mesmo \`eventId\`.
 `
 }

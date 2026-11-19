@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto'
 
-import { getPool, withTransaction } from '@/lib/db/pool'
-import { loadGatewayConfig } from '@/lib/payments/gateway-config'
+import { withTransaction } from '@/lib/db/pool'
 
 import { hashCheckoutSecret } from './api-keys'
+import { resolveCheckoutCustomerProfile } from './customer-profile'
 import { verifySessionEmailProof } from './email-proof'
+import { createPagarmePaymentForOrder } from './gateway-payment'
 import { CheckoutSessionError } from './service'
 import type { CheckoutSessionPricingMode, CheckoutSessionStatus } from './types'
 
@@ -33,6 +34,7 @@ export interface SessionCheckoutResolved {
   customerEmail: string
   customerName: string
   customerDocument: string
+  personType: 'individual' | 'company'
   successUrl: string | null
 }
 
@@ -41,7 +43,6 @@ export async function resolveAndLockCheckoutSession(
 ): Promise<SessionCheckoutResolved> {
   const tokenHash = hashCheckoutSecret(body.checkoutSessionToken)
   const requestEmail = body.customer_info.email.trim().toLowerCase()
-  const requestCpf = (body.customer_info.cpf ?? '').replace(/\D/g, '')
   const requestName = body.customer_info.name?.trim() || requestEmail.split('@')[0]
 
   return withTransaction(async (client) => {
@@ -142,55 +143,11 @@ export async function resolveAndLockCheckoutSession(
       resolvedAmountCents = price.amount
     }
 
-    const profileRes = await client.query<{
-      id: string
-      name: string | null
-      cpf: string | null
-    }>(
-      `SELECT id, name, cpf
-       FROM payments.profiles
-       WHERE lower(email) = $1
-       LIMIT 1`,
-      [requestEmail]
-    )
-
-    let profileId: string
-    let resolvedCpf: string
-    let resolvedName = requestName
-
-    const existingProfile = profileRes.rows[0]
-    if (existingProfile) {
-      profileId = existingProfile.id
-      const existingCpf = (existingProfile.cpf ?? '').replace(/\D/g, '')
-      if (existingCpf.length >= 11) {
-        // Proteção estrita: nunca sobrescreve CPF já salvo sem prova de código nesta sessão
-        resolvedCpf = existingCpf
-      } else {
-        if (requestCpf.length !== 11) {
-          throw new CheckoutSessionError(400, 'Informe um CPF válido com 11 dígitos')
-        }
-        resolvedCpf = requestCpf
-        await client.query(
-          `UPDATE payments.profiles SET cpf = $1, updated_at = now() WHERE id = $2`,
-          [resolvedCpf, profileId]
-        )
-      }
-      if (!resolvedName && existingProfile.name) {
-        resolvedName = existingProfile.name
-      }
-    } else {
-      if (requestCpf.length !== 11) {
-        throw new CheckoutSessionError(400, 'Informe um CPF válido com 11 dígitos')
-      }
-      resolvedCpf = requestCpf
-      const newProfile = await client.query<{ id: string }>(
-        `INSERT INTO payments.profiles (email, name, cpf, person_type)
-         VALUES ($1, $2, $3, 'individual')
-         RETURNING id`,
-        [requestEmail, resolvedName, resolvedCpf]
-      )
-      profileId = newProfile.rows[0]!.id
-    }
+    const profile = await resolveCheckoutCustomerProfile(client, {
+      email: requestEmail,
+      name: requestName || cs.customer_name,
+      document: body.customer_info.cpf,
+    })
 
     const sessionMetadata: Record<string, unknown> = {
       ...(cs.metadata ?? {}),
@@ -218,7 +175,7 @@ export async function resolveAndLockCheckoutSession(
          ) VALUES ($1, $2, $3, $4, $5, 'one_time', 'pagarme', $6, 'pending', $7::jsonb)`,
         [
           orderId,
-          profileId,
+          profile.profileId,
           cs.product_id,
           resolvedPriceId,
           resolvedAmountCents,
@@ -243,10 +200,11 @@ export async function resolveAndLockCheckoutSession(
       priceId: resolvedPriceId,
       amountCents: resolvedAmountCents,
       metadata: sessionMetadata,
-      profileId,
+      profileId: profile.profileId,
       customerEmail: requestEmail,
-      customerName: resolvedName || cs.customer_name || requestEmail.split('@')[0],
-      customerDocument: resolvedCpf,
+      customerName: profile.customerName,
+      customerDocument: profile.customerDocument,
+      personType: profile.personType,
       successUrl: cs.success_url,
     }
   })
@@ -254,85 +212,19 @@ export async function resolveAndLockCheckoutSession(
 
 export async function createSessionPagarmePayment(body: SessionCheckoutRequestBody) {
   const resolved = await resolveAndLockCheckoutSession(body)
-  const config = await loadGatewayConfig()
-  if (!config.pagarmeSecretKey) {
-    throw new CheckoutSessionError(403, 'Pagar.me não está ativo.')
-  }
-
-  const { createPagarmeService } = await import('@quitou/core')
-  const pagarmeService = createPagarmeService(config.pagarmeSecretKey, config.pagarmeEnvironment)
-
-  const isCard = body.billing_type === 'CREDIT_CARD'
-  const installments = Math.min(12, Math.max(1, body.installments ?? 1))
-  const acceptedMethods = isCard ? ['credit_card'] : ['pix', 'boleto']
-
-  const paymentLink = await pagarmeService.createPaymentLink({
-    is_building: false,
-    name: `${resolved.productName} (${resolved.orderId.slice(0, 8)})`,
-    type: 'order',
-    payment_settings: {
-      accepted_payment_methods: acceptedMethods as Array<'credit_card' | 'pix' | 'boleto'>,
-      credit_card_settings: {
-        operation_type: 'auth_and_capture',
-        installments: Array.from({ length: installments }, (_, idx) => ({
-          number: idx + 1,
-          total: resolved.amountCents,
-        })),
-      },
-      boleto_settings: {
-        due_in: 3,
-        instructions: `Pagamento do produto ${resolved.productName}.`,
-      },
-      pix_settings: {
-        expires_in: 72 * 60 * 60,
-      },
-    },
-    cart_settings: {
-      items: [
-        {
-          amount: resolved.amountCents,
-          name: resolved.productName,
-          default_quantity: 1,
-        },
-      ],
-    },
-    customer_settings: {
-      customer: {
-        name: resolved.customerName,
-        email: resolved.customerEmail,
-        document: resolved.customerDocument,
-        type: 'individual',
-      },
-    },
-    order_code: resolved.orderId,
-  })
-
-  const paymentId = randomUUID()
-  await getPool().query(
-    `INSERT INTO payments.pagarme_payments (
-       id, order_id, user_id, product_id, price_id, amount_cents,
-       payment_link_id, payment_link_url, payment_method, status, metadata
-     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', $10::jsonb)`,
-    [
-      paymentId,
-      resolved.orderId,
-      resolved.profileId,
-      resolved.productId,
-      resolved.priceId,
-      resolved.amountCents,
-      paymentLink.id,
-      paymentLink.url,
-      body.billing_type ?? 'PIX',
-      JSON.stringify(resolved.metadata),
-    ]
-  )
-
-  return {
-    paymentId,
-    payment_id: paymentId,
+  return createPagarmePaymentForOrder({
     orderId: resolved.orderId,
-    checkoutUrl: paymentLink.url,
-    payment_url: paymentLink.url,
+    profileId: resolved.profileId,
+    productId: resolved.productId,
+    productName: resolved.productName,
+    priceId: resolved.priceId,
     amountCents: resolved.amountCents,
-  }
+    metadata: resolved.metadata,
+    customerEmail: resolved.customerEmail,
+    customerName: resolved.customerName,
+    customerDocument: resolved.customerDocument,
+    personType: resolved.personType,
+    billingType: body.billing_type,
+    installments: body.installments,
+  })
 }

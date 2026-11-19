@@ -45,3 +45,33 @@ export interface CheckoutSessionRecord {
   created_at: string
   updated_at: string
 }
+
+export type WebhookDeliveryStatus = 'pending' | 'delivered' | 'failed'
+
+export interface WebhookDeliveryRecord {
+  id: string
+  event_id: string
+  checkout_session_id: string | null
+  order_id: string
+  product_id: string
+  target_url: string
+  status: WebhookDeliveryStatus
+  attempts: number
+  http_status: number | null
+  last_error: string | null
+  payload: Record<string, unknown>
+  next_retry_at: string | null
+  delivered_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CheckoutCustomerAddress {
+  cep: string
+  street: string
+  number: string
+  complement?: string | null
+  neighborhood?: string | null
+  city: string
+  state: string
+}

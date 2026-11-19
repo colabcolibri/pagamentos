@@ -1,9 +1,10 @@
 import crypto from 'node:crypto'
 
 import { getPool } from '@/lib/db/pool'
-import { getLogger } from '@/lib/logger'
 import { isUrlSafeForServerSideFetch } from '@/lib/security/safe-fetch-url'
 import { decryptStoredSecret } from '@/lib/security/secret-box'
+
+import { recordAndDeliverWebhook } from './webhook-deliveries'
 
 export function signOutboundWebhookPayload(payloadJson: string, secret: string): string {
   return crypto.createHmac('sha256', secret).update(payloadJson, 'utf8').digest('hex')
@@ -41,7 +42,7 @@ export async function completeCheckoutSessionForOrder(orderId: string): Promise<
     return { closedSessionId: session.id, customWebhookSent: false }
   }
 
-  // No modo custom (price_id IS NULL), disparamos o webhook canônico HMAC diretamente pelo produto.
+  // No modo custom (price_id IS NULL), registramos e disparamos o webhook canônico HMAC.
   const orderRes = await pool.query<{
     id: string
     amount_cents: number
@@ -101,29 +102,15 @@ export async function completeCheckoutSessionForOrder(orderId: string): Promise<
     metadata: session.metadata ?? order.metadata ?? {},
   }
 
-  const body = JSON.stringify(payload)
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    'X-Quitou-Event': 'payment.confirmed',
-    'X-Quitou-Event-Id': eventId,
-  }
-  if (secret) {
-    headers['X-Quitou-Signature'] = `sha256=${signOutboundWebhookPayload(body, secret)}`
-  }
+  const delivered = await recordAndDeliverWebhook({
+    eventId,
+    checkoutSessionId: session.id,
+    orderId: order.id,
+    productId: order.product_id,
+    targetUrl: order.webhook_url,
+    payload,
+    secret,
+  })
 
-  try {
-    const res = await fetch(order.webhook_url, {
-      method: 'POST',
-      headers,
-      body,
-      signal: AbortSignal.timeout(8000),
-    })
-    return { closedSessionId: session.id, customWebhookSent: res.ok }
-  } catch (error) {
-    getLogger().error(
-      'Falha ao enviar webhook outbound de Checkout Session custom',
-      error instanceof Error ? error : new Error(String(error))
-    )
-    return { closedSessionId: session.id, customWebhookSent: false }
-  }
+  return { closedSessionId: session.id, customWebhookSent: delivered.delivered }
 }
