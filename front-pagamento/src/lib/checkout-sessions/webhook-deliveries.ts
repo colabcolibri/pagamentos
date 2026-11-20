@@ -257,11 +257,13 @@ export async function listWebhookDeliveries(status?: WebhookDeliveryStatus) {
     next_retry_at: string | null
     delivered_at: string | null
     created_at: string
+    payload: Record<string, unknown>
   }>(
     `SELECT
        wd.id, wd.event_id, wd.checkout_session_id, wd.order_id, wd.product_id,
        p.name AS product_name, wd.target_url, wd.status, wd.attempts,
-       wd.http_status, wd.last_error, wd.next_retry_at, wd.delivered_at, wd.created_at
+       wd.http_status, wd.last_error, wd.next_retry_at, wd.delivered_at, wd.created_at,
+       wd.payload
      FROM payments.webhook_deliveries wd
      JOIN payments.products p ON p.id = wd.product_id
      ${where}
