@@ -113,8 +113,8 @@ function storedEnvironment(value: string | null | undefined): GatewayEnvironment
 export function maskSecret(value: string | null | undefined): string | null {
   const trimmed = value?.trim() ?? ''
   if (!trimmed) return null
-  if (trimmed.length < 8) return '••••••••'
-  return `${trimmed.slice(0, 3)}…${trimmed.slice(-4)}`
+  if (trimmed.length <= 8) return '••••••••'
+  return `${trimmed.slice(0, 4)}…${trimmed.slice(-4)}`
 }
 
 function secretStatus(value: string | null, source: SecretSource): SecretStatus {

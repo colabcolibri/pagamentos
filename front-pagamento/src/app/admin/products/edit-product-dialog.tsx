@@ -97,7 +97,7 @@ function productToFormData(product: Product): FormData {
     active: product.active,
     payment_methods: product.payment_methods || [...DEFAULT_PAYMENT_METHODS],
     webhook_url: product.webhook_url || '',
-    webhook_secret: product.webhook_secret ? '••••••••' : '',
+    webhook_secret: '',
     allow_custom_amount: Boolean(product.allow_custom_amount),
     min_amount_reais: centsToReaisInput(product.min_amount_cents ?? 100),
     max_amount_reais: centsToReaisInput(product.max_amount_cents),
@@ -214,6 +214,7 @@ export function EditProductDialog({
 }: EditProductDialogProps) {
   const [formData, setFormData] = useState<FormData>(getEmptyFormData)
   const [showWebhookSecret, setShowWebhookSecret] = useState(false)
+  const [clearWebhookSecret, setClearWebhookSecret] = useState(false)
   const [refundPolicy, setRefundPolicy] = useState<RefundPolicyContent | null>(null)
   const [emailConfig, setEmailConfig] = useState<ProductEmailConfig | null>(null)
   const [prices, setPrices] = useState<Partial<Price>[]>([])
@@ -243,7 +244,11 @@ export function EditProductDialog({
       setEmailConfig(null)
       setPrices([])
     }
-    if (open) setActiveTab('general')
+    if (open) {
+      setActiveTab('general')
+      setClearWebhookSecret(false)
+      setShowWebhookSecret(false)
+    }
   }, [product, open])
 
   const validate = () => {
@@ -267,8 +272,12 @@ export function EditProductDialog({
 
     setIsSaving(true)
     try {
-      const webhookSecretValue =
-        formData.webhook_secret === '••••••••' ? undefined : formData.webhook_secret || null
+      const trimmedSecret = formData.webhook_secret.trim()
+      const webhookSecretValue = trimmedSecret
+        ? trimmedSecret
+        : clearWebhookSecret
+          ? null
+          : undefined
 
       const metadata = mergeProductMetadataAdminGroup(
         isCreate ? null : product?.metadata,
@@ -680,13 +689,62 @@ export function EditProductDialog({
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="webhook_secret">{CONTENT.webhook.secretLabel}</FieldLabel>
+                  {!isCreate && product?.webhook_secret && !clearWebhookSecret && (
+                    <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/40 px-3 py-1.5 text-xs">
+                      <span>
+                        Segredo atual:{' '}
+                        <code className="font-mono font-semibold">{product.webhook_secret}</code>
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs text-destructive hover:text-destructive"
+                        onClick={() => {
+                          setClearWebhookSecret(true)
+                          updateField('webhook_secret', '')
+                        }}
+                      >
+                        Remover segredo
+                      </Button>
+                    </div>
+                  )}
+                  {!isCreate && clearWebhookSecret && (
+                    <div className="mb-1.5 flex items-center justify-between gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs text-destructive">
+                      <span>O segredo atual será removido ao salvar.</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs"
+                        onClick={() => setClearWebhookSecret(false)}
+                      >
+                        Desfazer
+                      </Button>
+                    </div>
+                  )}
+                  {formData.webhook_url.trim() &&
+                    (!product?.webhook_secret || clearWebhookSecret) &&
+                    !formData.webhook_secret.trim() && (
+                      <p className="mb-1.5 text-xs text-amber-600 dark:text-amber-400">
+                        Defina um segredo para que o webhook seja assinado e enviado ao sistema
+                        externo.
+                      </p>
+                    )}
                   <div className="relative flex min-w-0">
                     <Input
                       id="webhook_secret"
                       type={showWebhookSecret ? 'text' : 'password'}
                       value={formData.webhook_secret}
-                      onChange={(e) => updateField('webhook_secret', e.target.value)}
-                      placeholder={CONTENT.webhook.secretPlaceholder}
+                      onChange={(e) => {
+                        setClearWebhookSecret(false)
+                        updateField('webhook_secret', e.target.value)
+                      }}
+                      placeholder={
+                        !isCreate && product?.webhook_secret && !clearWebhookSecret
+                          ? 'Deixe vazio para manter o segredo atual'
+                          : 'Digite o segredo HMAC do webhook'
+                      }
                       className="min-w-0 pr-10"
                       autoComplete="off"
                     />

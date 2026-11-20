@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 
 import { recordPricePromoSalesAfterOrderPaid } from '@quitou/core'
-import { sendPaymentConfirmedProductWebhook } from '@quitou/core/product-webhook'
 
 import { recordAdminAction } from '@/lib/admin/audit'
 import { requireAdmin } from '@/lib/auth'
@@ -11,6 +10,7 @@ import { sendPlatformSaleNotificationForOrderId } from '@/lib/email-helpers'
 import { createApiHandlerWithParams } from '@/lib/errors'
 import { getLogger } from '@/lib/logger'
 import { validateUuidParam } from '@/lib/validators/helpers'
+import { deliverProductWebhookForOrder } from '@/lib/webhooks/deliver-product-webhook'
 
 const ALLOWED_ORDER_STATUSES = ['pending', 'failed', 'expired'] as const
 
@@ -30,7 +30,7 @@ function isUpdatablePaymentStatus(status: string | null): boolean {
 }
 
 function createPaymentsSchemaServiceClient() {
-  return createAdminPaymentsClient() as Parameters<typeof sendPaymentConfirmedProductWebhook>[0]
+  return createAdminPaymentsClient() as Parameters<typeof recordPricePromoSalesAfterOrderPaid>[0]
 }
 
 /**
@@ -256,7 +256,7 @@ export const POST = createApiHandlerWithParams(
           error: promoErr,
         })
       }),
-      sendPaymentConfirmedProductWebhook(serviceClient, id).catch((whErr) => {
+      deliverProductWebhookForOrder(id).catch((whErr) => {
         logger.warn('Pedido marcado como pago, mas falha ao disparar webhook do produto', {
           orderId: id,
           error: whErr,

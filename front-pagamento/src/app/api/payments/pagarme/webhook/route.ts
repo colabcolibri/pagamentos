@@ -2,7 +2,6 @@
  * Webhook Pagar.me - Wrapper que usa @quitou/core
  */
 import { createPagarmeWebhookHandler } from '@quitou/core'
-import { sendPaymentConfirmedProductWebhook } from '@quitou/core/product-webhook'
 
 import { completeCheckoutSessionForOrder } from '@/lib/checkout-sessions/webhook-complete'
 import { createPaymentsQueryClient } from '@/lib/db/payments-query'
@@ -14,6 +13,7 @@ import {
 import { getLogger } from '@/lib/logger'
 import { loadGatewayConfig } from '@/lib/payments/gateway-config'
 import { timingSafeStringEqual } from '@/lib/security/timing-safe-string-equal'
+import { deliverProductWebhookForOrder } from '@/lib/webhooks/deliver-product-webhook'
 
 const supabase = new Proxy({} as ReturnType<typeof createPaymentsQueryClient>, {
   get(_target, prop, receiver) {
@@ -61,7 +61,7 @@ const handler = createPagarmeWebhookHandler({
       const sessionResult = await completeCheckoutSessionForOrder(payment.order_id)
       await sendPaymentConfirmedEmailFromOrder(supabase, payment.order_id, payment.webhook_event_id)
       if (!sessionResult.customWebhookSent) {
-        await sendPaymentConfirmedProductWebhook(supabase, payment.order_id)
+        await deliverProductWebhookForOrder(payment.order_id)
       }
     }
   },

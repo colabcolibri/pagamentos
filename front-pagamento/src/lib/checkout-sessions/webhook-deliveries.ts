@@ -33,14 +33,28 @@ export async function executeWebhookDeliveryAttempt(params: {
     return { ok: false, httpStatus: null, error: err }
   }
 
+  if (!params.secret || !params.secret.trim()) {
+    const err = 'Segredo de webhook (webhook_secret) não configurado no produto'
+    await getPool().query(
+      `UPDATE payments.webhook_deliveries
+       SET status = 'failed', attempts = attempts + 1, last_error = $1, next_retry_at = NULL, updated_at = now()
+       WHERE id = $2`,
+      [err, params.deliveryId]
+    )
+    return { ok: false, httpStatus: null, error: err }
+  }
+
   const body = JSON.stringify(params.payload)
+  const signature = `sha256=${signOutboundWebhookPayload(body, params.secret)}`
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    'User-Agent': 'Quitou-Webhook/1.0',
     'X-Quitou-Event': 'payment.confirmed',
     'X-Quitou-Event-Id': params.eventId,
-  }
-  if (params.secret) {
-    headers['X-Quitou-Signature'] = `sha256=${signOutboundWebhookPayload(body, params.secret)}`
+    'X-Quitou-Signature': signature,
+    'X-Webhook-Event': 'payment.confirmed',
+    'X-Webhook-Id': params.eventId,
+    'X-Webhook-Signature': signature,
   }
 
   const nextAttempts = params.attemptsBefore + 1

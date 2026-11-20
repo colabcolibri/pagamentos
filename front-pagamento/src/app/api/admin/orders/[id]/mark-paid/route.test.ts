@@ -7,8 +7,8 @@ import { POST } from './route'
 const orderUuid = 'b2c3d4e5-f6a7-8901-bcde-f12345678901'
 const paymentUuid = 'c3d4e5f6-a7b8-9012-cdef-123456789012'
 
-vi.mock('@quitou/core/product-webhook', () => ({
-  sendPaymentConfirmedProductWebhook: vi.fn().mockResolvedValue(undefined),
+vi.mock('@/lib/webhooks/deliver-product-webhook', () => ({
+  deliverProductWebhookForOrder: vi.fn().mockResolvedValue({ dispatched: true, delivered: true }),
 }))
 
 vi.mock('@/lib/auth', () => ({
@@ -43,7 +43,7 @@ vi.mock('@/lib/config/env', () => ({
 
 const { requireAdmin } = await import('@/lib/auth')
 const { createAdminPaymentsClient } = await import('@/lib/db/payments-query')
-const { sendPaymentConfirmedProductWebhook } = await import('@quitou/core/product-webhook')
+const { deliverProductWebhookForOrder } = await import('@/lib/webhooks/deliver-product-webhook')
 
 function buildRequest() {
   return new Request(`http://localhost/api/admin/orders/${orderUuid}/mark-paid`, { method: 'POST' })
@@ -53,7 +53,7 @@ describe('POST /api/admin/orders/[id]/mark-paid', () => {
   beforeEach(() => {
     vi.mocked(requireAdmin).mockReset()
     vi.mocked(createAdminPaymentsClient).mockReset()
-    vi.mocked(sendPaymentConfirmedProductWebhook).mockClear()
+    vi.mocked(deliverProductWebhookForOrder).mockClear()
   })
 
   it('retorna 401 quando não é admin', async () => {
@@ -108,7 +108,7 @@ describe('POST /api/admin/orders/[id]/mark-paid', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.alreadyPaid).toBe(true)
-    expect(sendPaymentConfirmedProductWebhook).not.toHaveBeenCalled()
+    expect(deliverProductWebhookForOrder).not.toHaveBeenCalled()
   })
 
   it('retorna 200 e atualiza quando há cobrança Pagar.me pendente', async () => {
@@ -182,6 +182,6 @@ describe('POST /api/admin/orders/[id]/mark-paid', () => {
       orderUuid,
       expect.any(String),
     ])
-    expect(sendPaymentConfirmedProductWebhook).toHaveBeenCalledTimes(1)
+    expect(deliverProductWebhookForOrder).toHaveBeenCalledTimes(1)
   })
 })

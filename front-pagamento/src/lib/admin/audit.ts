@@ -2,7 +2,12 @@ import type { Pool } from 'pg'
 
 export type AdminAuditInput = {
   actorId: string
-  action: 'order.mark_paid' | 'order.cancel' | 'order.delete' | 'payment.cancel'
+  action:
+    | 'order.mark_paid'
+    | 'order.cancel'
+    | 'order.delete'
+    | 'payment.cancel'
+    | 'webhook.manual_dispatch'
   targetType: 'order' | 'payment'
   targetId: string
 }

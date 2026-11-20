@@ -23,12 +23,13 @@ describe('chooseSecret', () => {
 })
 
 describe('maskSecret', () => {
-  it('mostra só as 3 primeiras e as 4 últimas', () => {
-    expect(maskSecret('sk_live_abcdefghij')).toBe('sk_…ghij')
+  it('mostra só as 4 primeiras e as 4 últimas', () => {
+    expect(maskSecret('sk_live_abcdefghij')).toBe('sk_l…ghij')
   })
 
   it('não revela um segredo curto', () => {
     expect(maskSecret('curta')).toBe('••••••••')
+    expect(maskSecret('12345678')).toBe('••••••••')
   })
 
   it('não devolve nada quando está vazio', () => {
@@ -80,12 +81,12 @@ describe('publicGatewayAvailability', () => {
     expect(view.asaas_api_key).toEqual({
       configured: true,
       source: 'database',
-      preview: 'SEC…ALUE',
+      preview: 'SECR…ALUE',
     })
     expect(view.pagarme_secret_key).toEqual({
       configured: true,
       source: 'env',
-      preview: 'SEC…ALUE',
+      preview: 'SECR…ALUE',
     })
     expect(view.asaas_webhook_secret.preview).toBeNull()
     expect(JSON.stringify(view)).not.toContain('GEMINI')
